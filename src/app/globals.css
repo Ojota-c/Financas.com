@@ -1,0 +1,204 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* Nasce dark. Modo claro é fase 5 — por isso todo valor abaixo é variável:
+   trocar depois é sobrescrever este bloco, não caçar cor no código. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ─────────────────────────────────────────────────────────────
+   Tokens — PLANEJAMENTO-APP-FINANCAS.md §7. Fonte da verdade.
+   Nenhuma cor fora daqui, em lugar nenhum.
+   ───────────────────────────────────────────────────────────── */
+:root {
+  /* superfícies */
+  --bg: #08090d;
+  --surface-1: #101218;
+  --surface-2: #171a22;
+  --border: rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.14);
+
+  /* vidro — só em hero, modal e bottom sheet */
+  --glass: rgba(255, 255, 255, 0.045);
+  --glass-blur: blur(20px) saturate(160%);
+
+  /* acentos */
+  --accent: #22d3ee; /* ciano — primário */
+  --accent-2: #a78bfa; /* violeta — secundário/gradiente */
+  --positive: #34d399; /* receita, dentro do orçamento */
+  --negative: #fb7185; /* despesa, estouro */
+  --warning: #fbbf24; /* vence em breve */
+  --gold: #e3b341; /* reservado a CONQUISTA: meta batida, streak, reserva completa */
+
+  /* texto */
+  --text: #f2f4f8;
+  --text-mid: #9ba3b4;
+  --text-dim: #5c6475;
+
+  --glow: 0 0 24px rgba(34, 211, 238, 0.28);
+  --r: 16px;
+
+  /* escala de raio derivada do raio padrão */
+  --r-sm: calc(var(--r) - 8px);
+  --r-md: calc(var(--r) - 4px);
+  --r-lg: var(--r);
+  --r-xl: calc(var(--r) + 8px);
+
+  /* motion §7: 150–250ms */
+  --ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --dur-fast: 150ms;
+  --dur: 200ms;
+  --dur-slow: 250ms;
+
+  /* grade de gráfico — quase invisível */
+  --chart-grid: rgba(255, 255, 255, 0.04);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Ponte para o Tailwind v4 e para o shadcn/ui.
+   Atenção ao nome: no shadcn, `accent` é a superfície de hover,
+   não a marca. A marca vive em `brand-*` para que o ghost button
+   não vire um bloco de neon.
+   ───────────────────────────────────────────────────────────── */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-glass: var(--glass);
+
+  --color-brand: var(--accent);
+  --color-brand-2: var(--accent-2);
+  --color-positive: var(--positive);
+  --color-negative: var(--negative);
+  --color-warning: var(--warning);
+  --color-gold: var(--gold);
+
+  --color-text: var(--text);
+  --color-text-mid: var(--text-mid);
+  --color-text-dim: var(--text-dim);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-chart-grid: var(--chart-grid);
+
+  /* nomes que o shadcn/ui gera nos componentes */
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
+  --color-card: var(--surface-1);
+  --color-card-foreground: var(--text);
+  --color-popover: var(--surface-2);
+  --color-popover-foreground: var(--text);
+  --color-primary: var(--accent);
+  --color-primary-foreground: var(--bg);
+  --color-secondary: var(--surface-2);
+  --color-secondary-foreground: var(--text);
+  --color-muted: var(--surface-2);
+  --color-muted-foreground: var(--text-mid);
+  --color-accent: var(--surface-2);
+  --color-accent-foreground: var(--text);
+  --color-destructive: var(--negative);
+  --color-destructive-foreground: var(--bg);
+  --color-border: var(--border);
+  --color-input: var(--border-strong);
+  --color-ring: var(--accent);
+
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-lg);
+  --radius-xl: var(--r-xl);
+
+  --shadow-glow: var(--glow);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  --ease-aurum: var(--ease);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Foco sempre visível — §7, acessibilidade. */
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--accent) 30%, transparent);
+  }
+
+  /* Todo dígito na UI é tabular: sem isso a coluna dança ao atualizar. */
+  input[type="number"],
+  table,
+  time,
+  [data-numeric] {
+    font-variant-numeric: tabular-nums;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* Valores grandes: Geist Mono 600, tracking apertado (§7). */
+  .money {
+    font-family: var(--font-geist-mono), ui-monospace, monospace;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+
+  /* Vidro: só hero, modal e bottom sheet. Se estiver usando em outro
+     lugar, provavelmente é um card comum (bg-surface-1). */
+  .glass {
+    background-color: var(--glass);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--border);
+  }
+
+  /* Brilho de fundo das telas de entrada. Decorativo e discreto: o neon é
+     dosado (§7) — aqui ele só situa a marca, não compete com o formulário. */
+  .aurora {
+    background-image:
+      radial-gradient(
+        60rem 40rem at 15% -10%,
+        color-mix(in oklab, var(--accent) 16%, transparent),
+        transparent 60%
+      ),
+      radial-gradient(
+        50rem 35rem at 95% 110%,
+        color-mix(in oklab, var(--accent-2) 14%, transparent),
+        transparent 60%
+      );
+  }
+
+  /* Gradiente da marca: ciano → violeta. Usado no FAB e no número herói. */
+  .brand-gradient {
+    background-image: linear-gradient(
+      135deg,
+      var(--accent) 0%,
+      var(--accent-2) 100%
+    );
+  }
+}

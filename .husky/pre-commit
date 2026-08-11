@@ -1,0 +1,6 @@
+# Lint e formatação nos arquivos em stage.
+pnpm exec lint-staged
+
+# Tipo é checado no projeto inteiro: um `any` ou um tipo quebrado costuma
+# aparecer em arquivo que não está no stage.
+pnpm exec tsc --noEmit
