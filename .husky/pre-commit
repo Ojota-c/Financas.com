@@ -1,6 +1,39 @@
-# Lint e formatação nos arquivos em stage.
+# ── 1. Nenhum segredo entra no commit ────────────────────────────────────────
+# O .gitignore já barra o caminho normal; isto pega o caso em que um valor real
+# foi colado dentro de um arquivo que É versionado (o .env.example, por exemplo).
+# Este próprio arquivo fica de fora da varredura: ele contém os padrões.
+
+# O husky roda este arquivo com `sh -e`: um grep sem resultado sai com código 1
+# e derrubaria o commit em silêncio. Daí o `|| true` em toda busca — sem ele, a
+# trava barra justamente os commits limpos.
+arquivos=$(git diff --cached --name-only --diff-filter=ACM | grep -v '^.husky/pre-commit$' || true)
+
+if [ -n "$arquivos" ]; then
+  # .env de verdade nunca deve ser rastreado; só o molde.
+  envs=$(printf '%s\n' "$arquivos" | grep -E '(^|/)\.env' | grep -v '\.env\.example$' || true)
+  if [ -n "$envs" ]; then
+    echo "✖ Commit bloqueado: arquivo de ambiente no stage."
+    printf '%s\n' "$envs" | sed 's/^/    /'
+    echo "  Segredo vive em .env.local (ignorado) e na Vercel. Rode: git restore --staged <arquivo>"
+    exit 1
+  fi
+
+  # Valor de chave real colado em arquivo versionado.
+  achados=$(git diff --cached -U0 -- $arquivos \
+    | grep -E '^\+' \
+    | grep -Ei 'sb_(secret|publishable)_[A-Za-z0-9_-]{8}|eyJhbGciOi[A-Za-z0-9_-]{8}|BEGIN [A-Z ]*PRIVATE KEY|AKIA[0-9A-Z]{16}|postgres(ql)?://[^:]+:[^@S][^@]*@' || true)
+
+  if [ -n "$achados" ]; then
+    echo "✖ Commit bloqueado: parece haver credencial real em arquivo versionado."
+    printf '%s\n' "$achados" | cut -c1-100 | sed 's/^/    /'
+    echo "  Se for placeholder e o alarme for falso, use: git commit --no-verify"
+    exit 1
+  fi
+fi
+
+# ── 2. Lint e formatação nos arquivos em stage ───────────────────────────────
 pnpm exec lint-staged
 
-# Tipo é checado no projeto inteiro: um `any` ou um tipo quebrado costuma
-# aparecer em arquivo que não está no stage.
+# ── 3. Tipo no projeto inteiro ───────────────────────────────────────────────
+# Um `any` ou tipo quebrado costuma aparecer em arquivo fora do stage.
 pnpm exec tsc --noEmit

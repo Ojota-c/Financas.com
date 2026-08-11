@@ -30,13 +30,33 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# ─────────────────────────────────────────────────────────────────────────────
+# SEGREDOS — nada aqui entra no repositório.
+# A única exceção é .env.example, que é molde e só contém placeholder.
+# ─────────────────────────────────────────────────────────────────────────────
+.env
+.env.*
 !.env.example
+
+# chaves, certificados e credenciais de serviço
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*service-account*.json
+*credentials*.json
+*.gpg
+secrets/
+
+# dumps de banco (backup semanal da fase 5 sai cifrado, mas não fica versionado)
+*.sql.gz
+*.dump
 
 # supabase cli
 supabase/.temp
 supabase/.branches
+supabase/.env
 
 # vercel
 .vercel

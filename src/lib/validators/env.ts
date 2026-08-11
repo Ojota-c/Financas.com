@@ -1,7 +1,14 @@
 import { z } from "zod";
 
 const publicEnvSchema = z.object({
-  NEXT_PUBLIC_SUPABASE_URL: z.url(),
+  // Só o host. Copiar a URL da aba Data API traz "/rest/v1/" junto, e aí o
+  // supabase-js monta /rest/v1/auth/v1/token — 404 silencioso no login.
+  NEXT_PUBLIC_SUPABASE_URL: z
+    .url()
+    .refine(
+      (value) => new URL(value).pathname === "/",
+      "não pode ter caminho: use só https://<ref>.supabase.co",
+    ),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
 });
 
