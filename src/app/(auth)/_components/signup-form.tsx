@@ -55,7 +55,8 @@ export function SignupForm({ next }: { next?: string | undefined }) {
         <p className="text-text-mid text-sm">
           Enviamos um link para{" "}
           <strong className="text-text">{emailEnviadoPara}</strong>. Abra a
-          mensagem para ativar a conta — o link vale por 1 hora.
+          mensagem <strong className="text-text">neste mesmo navegador</strong>{" "}
+          para ativar a conta.
         </p>
         <p className="text-text-dim text-xs">
           Não chegou? Confira o spam antes de tentar de novo.
