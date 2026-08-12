@@ -34,6 +34,11 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
 	grant usage   on schema public to aurum_auth, aurum_app;
 	grant create  on schema public to aurum_auth;
 
+	-- CREATE no banco (e não só no schema public) porque o drizzle-kit guarda o
+	-- histórico de migrations num schema próprio chamado "drizzle", que ele cria
+	-- sozinho na primeira execução. Sem isto o `pnpm db:migrate` falha calado.
+	grant create on database "$POSTGRES_DB" to aurum_auth;
+
 	-- aurum_app nunca cria nem altera estrutura: só lê e escreve linha, sob RLS.
 	-- "default privileges FOR ROLE aurum_auth" vale para o que aurum_auth criar
 	-- daqui pra frente, que é exatamente o que as migrations fazem.

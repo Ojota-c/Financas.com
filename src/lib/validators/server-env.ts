@@ -14,6 +14,20 @@ const serverEnvSchema = z
     DATABASE_URL: z.string().startsWith("postgres"),
     // Role aurum_app: não é dona de nada. A RLS se aplica. Todo dado de domínio.
     DATABASE_URL_APP: z.string().startsWith("postgres"),
+
+    // Assina o cookie de sessão e o cache de sessão. Trocar este valor derruba
+    // todo mundo que está logado. Gere com: openssl rand -base64 32
+    BETTER_AUTH_SECRET: z.string().min(32),
+
+    // SMTP. Em dev aponta para o Mailpit do compose; em produção, para o Resend.
+    SMTP_URL: z.string().startsWith("smtp"),
+    MAIL_FROM: z.string().min(1),
+
+    // Opcionais: sem eles o app sobe e o login por e-mail funciona; só o botão
+    // do Google some. Evita travar o `pnpm dev` de quem ainda não criou as
+    // credenciais no Google Cloud Console.
+    GOOGLE_CLIENT_ID: z.string().optional(),
+    GOOGLE_CLIENT_SECRET: z.string().optional(),
   })
   .refine(
     (env) => usuarioDa(env.DATABASE_URL) !== usuarioDa(env.DATABASE_URL_APP),
@@ -36,6 +50,11 @@ function usuarioDa(connectionString: string): string {
 const parsed = serverEnvSchema.safeParse({
   DATABASE_URL: process.env.DATABASE_URL,
   DATABASE_URL_APP: process.env.DATABASE_URL_APP,
+  BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
+  SMTP_URL: process.env.SMTP_URL,
+  MAIL_FROM: process.env.MAIL_FROM,
+  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
+  GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
 });
 
 if (!parsed.success) {

@@ -5,6 +5,8 @@ import { Pool } from "pg";
 
 import { serverEnv } from "@/lib/validators/server-env";
 
+import * as schema from "./schema";
+
 /**
  * Dois pools, duas roles, dois níveis de privilégio.
  *
@@ -36,5 +38,5 @@ function pool(connectionString: string): Pool {
 const poolAuth = (poolCache.__aurumPoolAuth ??= pool(serverEnv.DATABASE_URL));
 const poolApp = (poolCache.__aurumPoolApp ??= pool(serverEnv.DATABASE_URL_APP));
 
-export const dbAuth = drizzle(poolAuth);
-export const dbApp = drizzle(poolApp);
+export const dbAuth = drizzle(poolAuth, { schema });
+export const dbApp = drizzle(poolApp, { schema });
