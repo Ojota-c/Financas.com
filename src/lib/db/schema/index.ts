@@ -5,3 +5,4 @@
  * registrada em três lugares.
  */
 export * from "./auth";
+export * from "./categories";

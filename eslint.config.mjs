@@ -33,8 +33,14 @@ const eslintConfig = defineConfig([
   },
 
   {
-    // O choke point acima não pode valer para quem É o choke point.
-    files: ["src/lib/db/**/*.ts", "src/lib/auth/server.ts"],
+    // O choke point acima não pode valer para quem É o choke point — nem para
+    // a suíte que prova que ele funciona: o teste de isolamento precisa dos
+    // dois pools lado a lado justamente para comparar o que cada role enxerga.
+    files: [
+      "src/lib/db/**/*.ts",
+      "src/lib/auth/server.ts",
+      "tests/rls/**/*.ts",
+    ],
     rules: { "no-restricted-imports": "off" },
   },
 

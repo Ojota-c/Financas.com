@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+# Um push novo cancela o anterior do mesmo ramo.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+
+    env:
+      # Mesmas senhas default do docker-compose. São de descarte: o banco vive
+      # dentro do runner e some no fim do job.
+      DATABASE_URL: postgres://aurum_auth:auth_dev@localhost:5434/aurum
+      DATABASE_URL_APP: postgres://aurum_app:app_dev@localhost:5434/aurum
+      BETTER_AUTH_SECRET: ci-secret-de-descarte-com-mais-de-32-caracteres
+      SMTP_URL: smtp://localhost:1025
+      MAIL_FROM: Aurum CI <ci@aurum.local>
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # O MESMO docker-compose do desenvolvimento, de propósito: as três roles e
+      # seus privilégios nascem de docker/postgres/init/00-roles.sh, e é essa
+      # separação que faz a RLS valer. Um `services:` do Actions subiria um
+      # Postgres com uma role só e a suíte de isolamento passaria por acidente.
+      - name: Subir Postgres e Mailpit
+        run: docker compose up -d --wait
+
+      - run: pnpm db:migrate
+
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm test:rls
+      - run: pnpm build
+
+      - name: Logs do banco em caso de falha
+        if: failure()
+        run: docker compose logs db --tail 80

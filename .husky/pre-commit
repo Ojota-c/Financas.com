@@ -19,9 +19,28 @@ if [ -n "$arquivos" ]; then
   fi
 
   # Valor de chave real colado em arquivo versionado.
-  achados=$(git diff --cached -U0 -- $arquivos \
-    | grep -E '^\+' \
-    | grep -Ei 'sb_(secret|publishable)_[A-Za-z0-9_-]{8}|eyJhbGciOi[A-Za-z0-9_-]{8}|BEGIN [A-Z ]*PRIVATE KEY|AKIA[0-9A-Z]{16}|postgres(ql)?://[^:]+:[^@S][^@]*@' || true)
+  linhas=$(git diff --cached -U0 -- $arquivos | grep -E '^\+' || true)
+
+  # Estes são segredo onde quer que apareçam.
+  # GOCSPX- é o prefixo do client secret de OAuth do Google, que entrou no
+  # projeto junto com o Better Auth. Os sb_* do Supabase saíram: não há mais
+  # como um deles ser gerado aqui.
+  achados=$(printf '%s\n' "$linhas" \
+    | grep -Ei 'eyJhbGciOi[A-Za-z0-9_-]{8}|BEGIN [A-Z ]*PRIVATE KEY|AKIA[0-9A-Z]{16}|GOCSPX-[A-Za-z0-9_-]{10}' || true)
+
+  # Connection string com senha ficou MUITO mais relevante agora que o banco é
+  # nosso — mas só alarma se apontar para fora da máquina. postgres://…@localhost
+  # é o banco do docker-compose, com senha de descarte, e aparece de propósito no
+  # .env.example e no CI.
+  dsn=$(printf '%s\n' "$linhas" \
+    | grep -Ei 'postgres(ql)?://[^:]+:[^@S][^@]*@' \
+    | grep -Eiv '@(localhost|127\.0\.0\.1|host\.docker\.internal|db)[:/]' || true)
+
+  if [ -n "$dsn" ]; then
+    achados=$(printf '%s\n%s\n' "$achados" "$dsn")
+  fi
+
+  achados=$(printf '%s' "$achados" | grep -v '^$' || true)
 
   if [ -n "$achados" ]; then
     echo "✖ Commit bloqueado: parece haver credencial real em arquivo versionado."

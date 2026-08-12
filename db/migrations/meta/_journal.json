@@ -15,6 +15,20 @@
       "when": 1786502047383,
       "tag": "0001_restringe_aurum_app_nas_tabelas_de_auth",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786502819171,
+      "tag": "0002_medical_prodigy",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1786502826325,
+      "tag": "0003_rls_triggers_e_catalogo_de_categorias",
+      "breakpoints": true
     }
   ]
 }
