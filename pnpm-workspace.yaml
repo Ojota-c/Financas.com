@@ -1,3 +1,6 @@
 allowBuilds:
   sharp: false
   unrs-resolver: false
+  # O drizzle-kit traz esbuild, cujo postinstall baixa o binário da plataforma.
+  # Sem liberar, o pnpm bloqueia o script e avisa a cada install.
+  esbuild: true

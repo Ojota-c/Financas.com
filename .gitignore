@@ -58,6 +58,10 @@ supabase/.temp
 supabase/.branches
 supabase/.env
 
+# drizzle-kit: cache local do `drizzle-kit studio`. As migrations em db/migrations
+# SÃO versionadas — é o histórico do schema.
+.drizzle/
+
 # vercel
 .vercel
 
