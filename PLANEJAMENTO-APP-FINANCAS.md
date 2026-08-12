@@ -4,6 +4,23 @@
 > Documento mestre de planejamento. Versão 1 — 10/08/2026.
 > *(Aurum = "ouro" em latim. Nome provisório, trocável.)*
 
+> ### ⚠️ Leia antes: a infraestrutura mudou em 11/08/2026
+>
+> O **Supabase saiu**. No lugar: **PostgreSQL 17 em Docker** e **Better Auth**
+> rodando dentro do próprio Next. A decisão foi tomada antes da fase 1 de
+> propósito — o acoplamento era de ~250 linhas e 100% de autenticação, sem
+> nenhuma query de dados escrita, então custou TypeScript em vez de custar o
+> schema inteiro.
+>
+> **O produto, as fórmulas (§6.3), o design (§7) e o roadmap (§8) valem como
+> estão.** O que ficou desatualizado é infraestrutura: a tabela de peças (§2), os
+> riscos ligados ao free tier (§3), a estrutura de pastas (§9), parte das
+> decisões (§10) e as referências (§11). §4.2 e §4.3 já foram atualizados e
+> trazem nota própria.
+>
+> Para o estado atual da stack e das decisões, **`CLAUDE.md` é a fonte da
+> verdade**.
+
 ---
 
 ## 1. Decisões já fechadas
@@ -92,18 +109,37 @@ Por que isso é melhor que "compartilhar transações soltas": permissão, orça
 
 ### 4.2 Tabelas
 
+> **Atualizado em 11/08/2026, na saída do Supabase.** As quatro primeiras tabelas
+> já existem no banco e o que está implementado difere do texto original em
+> quatro pontos — o schema real vale mais que este bloco:
+>
+> - **`profiles` É a tabela de usuário**, não mais um espelho de `auth.users`.
+>   Sem GoTrue, não há duas tabelas para sincronizar: some uma tabela e o trigger
+>   que as mantinha em dia. Colunas de identidade (`name`, `email`,
+>   `email_verified`, `image`) são geridas pelo Better Auth.
+> - **`workspace_members` tem `id` próprio** em vez de PK composta — exigência do
+>   plugin `organization`. A unicidade de `(workspace_id, user_id)` virou
+>   constraint, que dá a mesma garantia.
+> - **`workspace_invites` não tem coluna `token`**: o próprio `id` (uuid) é o
+>   token, e o Better Auth o trata como opaco.
+> - **A FK entre membros/convites e workspace chama-se `organization_id`**, não
+>   `workspace_id`, porque vem do plugin. É a única concessão de nomenclatura.
+>
+> Acrescentou-se **`category_templates`** — o catálogo do §4.4, versionado em
+> migration. É a única tabela sem `workspace_id`, por não ser dado de usuário.
+
 ```
-profiles              id (=auth.users.id), display_name, avatar_url, locale, currency,
-                      onboarding_done, created_at
+profiles              id, name, email, email_verified, image, locale, currency,
+                      onboarding_done, created_at, updated_at
 
-workspaces            id, name, type ('personal'|'shared'), icon, color,
-                      owner_id → profiles, created_at
+workspaces            id, name, slug, type ('personal'|'shared'), icon, color,
+                      logo, metadata, created_at
 
-workspace_members     workspace_id, user_id, role ('owner'|'admin'|'member'|'viewer'),
-                      joined_at                              [PK composta]
+workspace_members     id, organization_id → workspaces, user_id → profiles,
+                      role, created_at            [unique (organization_id, user_id)]
 
-workspace_invites     id, workspace_id, email, role, token (uuid), status
-                      ('pending'|'accepted'|'revoked'|'expired'), invited_by,
+workspace_invites     id, organization_id → workspaces, email, role, status
+                      ('pending'|'accepted'|'revoked'|'expired'), inviter_id,
                       expires_at (7 dias), created_at
 
 accounts              id, workspace_id, name, type ('checking'|'savings'|'cash'|
@@ -151,18 +187,53 @@ audit_log             id, workspace_id, actor_id, entity, entity_id,
 
 ### 4.3 Segurança — RLS
 
-Uma função auxiliar, e todas as políticas derivam dela:
+> **Atualizado em 11/08/2026.** O princípio não mudou: o isolamento é do banco,
+> não do código. O **mecanismo** mudou, porque `auth.uid()` era do Supabase.
+>
+> Lá, cada requisição carregava o JWT do usuário e o Postgres sabia sozinho quem
+> estava perguntando. Com banco próprio, o app conecta com uma role fixa — então
+> o sujeito precisa ser informado, e há três roles em vez de uma:
+>
+> | Role | Usada por | RLS |
+> |---|---|---|
+> | `aurum_owner` | só o init do container | — |
+> | `aurum_auth` | migrations e Better Auth | **ignora** (é dona das tabelas) |
+> | `aurum_app` | toda query de domínio | **aplicada** |
+>
+> `aurum_auth` precisa ignorar a RLS: durante o login ainda não existe usuário
+> para uma policy avaliar. Se as duas fossem a mesma role, toda policy abaixo
+> seria decorativa.
+
+Duas funções auxiliares, e todas as políticas derivam delas:
 
 ```sql
+-- Ocupa o lugar de auth.uid(). Lê a variável que withUser() define na
+-- transação. Falha FECHADA: sem ela, devolve NULL e nenhuma linha passa.
+create or replace function public.current_user_id()
+returns uuid language sql stable
+as $$ select nullif(current_setting('app.user_id', true), '')::uuid $$;
+
 create or replace function public.is_member(ws uuid)
 returns boolean
 language sql stable security definer set search_path = public
 as $$
   select exists (
     select 1 from workspace_members
-    where workspace_id = ws and user_id = auth.uid()
+    where organization_id = ws and user_id = public.current_user_id()
   );
 $$;
+```
+
+Do lado da aplicação, o sujeito só entra por um caminho
+(`src/lib/db/with-user.ts`):
+
+```ts
+dbApp.transaction(async (tx) => {
+  // `true` = is_local: desfaz no fim da transação. Sem ele o valor sobrevive na
+  // conexão e a próxima requisição a pegá-la do pool lê como o usuário anterior.
+  await tx.execute(sql`select set_config('app.user_id', ${userId}, true)`);
+  return run(tx);
+});
 ```
 
 E em **cada tabela com `workspace_id`**:
@@ -170,18 +241,19 @@ E em **cada tabela com `workspace_id`**:
 ```sql
 alter table transactions enable row level security;
 
-create policy "membros leem" on transactions
-  for select using (is_member(workspace_id));
-
-create policy "membros escrevem" on transactions
-  for insert with check (is_member(workspace_id));
--- idem update/delete, com role check onde fizer sentido
+create policy transactions_membro on transactions
+  for all to aurum_app
+  using (public.is_member(workspace_id))
+  with check (public.is_member(workspace_id));
 ```
+
+O `with check` não é detalhe: é ele que impede mover uma linha **para dentro** do
+workspace alheio. Sem ele, `using` sozinho barra a leitura e libera a gravação.
 
 **Regras inegociáveis:**
 
-1. RLS **habilitado em todas** as tabelas. Uma tabela sem RLS no Supabase é uma API pública.
-2. A chave `service_role` **nunca** vai pro cliente — ela ignora RLS. Só em variável de ambiente de servidor.
+1. RLS **habilitado em todas** as tabelas, inclusive nas que não têm policy — sem policy, `aurum_app` enxerga zero linhas, que é o default certo.
+2. `aurum_app` **nunca** pode ganhar `BYPASSRLS` nem virar dona de tabela. Se ganhar, toda política acima vira enfeite e a suíte de isolamento passa por acidente — por isso o primeiro caso de `tests/rls/` verifica exatamente isso.
 3. `security definer` na `is_member` é obrigatório: sem ele, a política da `workspace_members` consulta ela mesma e entra em recursão infinita.
 4. Um teste automatizado que loga como usuário A e tenta ler dados de B, esperando **zero linhas**. Esse teste roda em todo deploy.
 
@@ -503,8 +575,8 @@ aurum/
 - [x] Toda cor via variável CSS, zero hardcode
 - [x] `lib/finance/` puro e 100% testado
 - [x] Deploy em produção desde a Fase 0
-- [x] Drizzle só em schema/migrations/tipos — runtime lê e escreve por `supabase-js` com o JWT do usuário, senão a RLS não é aplicada
-- [x] Transferência com `direction ('in'|'out')`; convite via RPC `accept_invite` com match de e-mail; data civil em `DATE`/`America/Sao_Paulo`
+- [x] ~~Drizzle só em schema/migrations/tipos — runtime por `supabase-js`~~ → **revisto em 11/08/2026:** Drizzle É o driver de runtime, sempre por `withUser()`, que informa o usuário da requisição ao Postgres. A RLS é aplicada por privilégio de role, não por JWT
+- [x] Transferência com `direction ('in'|'out')`; ~~convite via RPC `accept_invite`~~ → o plugin `organization` do Better Auth já exige e-mail verificado igual ao do convite; data civil em `DATE`/`America/Sao_Paulo`
 
 ---
 

@@ -4,6 +4,15 @@
 
 **Antes de começar:** salve o `PLANEJAMENTO-APP-FINANCAS.md` na raiz do projeto. Todos os prompts abaixo apontam pra ele em vez de repetir o conteúdo — é assim que você não gasta contexto à toa.
 
+> **⚠️ Desatualizado a partir do PROMPT 1.** Em 11/08/2026 o Supabase saiu e
+> entraram PostgreSQL 17 em Docker e Better Auth. O prompt da fase 0 abaixo é
+> registro histórico — a fase 0 já está concluída e o que ele descreve (cliente
+> Supabase nos 3 contextos, middleware do Supabase) não existe mais.
+> Os prompts das fases seguintes precisam ser reescritos antes de usar:
+> não há mais `service_role`, `auth.uid()` nem `supabase-js`, e toda query de
+> domínio passa por `withUser()`. **Leia o `CLAUDE.md` antes de colar qualquer
+> prompt daqui.**
+
 ---
 
 ## PROMPT 0 — Contexto permanente (rode uma vez só, no projeto vazio)

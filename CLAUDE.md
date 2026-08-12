@@ -7,7 +7,7 @@ pt-BR, conciso, sem explicar básico. Se um pedido comprometer a arquitetura, av
 ## As 6 regras invioláveis
 
 1. **Dinheiro é `BIGINT` em centavos.** Nunca float/double. Coluna e variável com sufixo `_cents`. Formatação só na borda de exibição.
-2. **RLS habilitado em toda tabela**, sem exceção. `service_role` só em env de servidor — jamais no bundle do cliente.
+2. **RLS habilitado em toda tabela**, sem exceção. Dado de domínio se lê e escreve por `withUser()` — nunca por `dbApp` direto, nunca por `dbAuth`.
 3. **Nada pertence a um usuário. Tudo pertence a um workspace.** Toda tabela de domínio tem `workspace_id`.
 4. **Nenhuma cor hardcoded.** Só variável CSS / token do tema.
 5. **`src/lib/finance/` é puro:** entra número, sai número. Sem banco, sem React, sem `Date.now()` — a data de referência é sempre parâmetro. Cobertura 100%, travada no CI.
@@ -16,12 +16,15 @@ pt-BR, conciso, sem explicar básico. Se um pedido comprometer a arquitetura, av
 ## Stack
 
 Next.js App Router · React · TypeScript strict · Tailwind v4 · shadcn/ui
-Supabase (Postgres + Auth Google/e-mail + RLS) · Drizzle (**só** schema, migrations e tipos) · Zod · React Hook Form
+**PostgreSQL 17 em Docker** · **Drizzle (schema, migrations E runtime)** · **Better Auth** (e-mail/senha + Google) · Zod · React Hook Form
 TanStack Query (optimistic updates) · Recharts + D3 (Sankey, heatmap) · Motion · date-fns + date-fns-tz · Serwist (PWA)
-Vercel Hobby · Resend (convites, fase 4) · Sentry (fase 5) · Vitest + Playwright
+nodemailer (Mailpit em dev, Resend em prod) · Sentry (fase 5) · Vitest · Playwright (fase 3a)
 
-Versões fixadas na fase 0 (10/08/2026), exatas no `package.json` — **não subir major sem combinar**:
-**Next 16.3.0** · React 19.2.8 · TypeScript 5.9.3 · Tailwind 4.3.3 · ESLint 9.39.5 · Node ≥ 22.
+Versões fixadas, exatas no `package.json` — **não subir major sem combinar**:
+**Next 16.3.0** · React 19.2.8 · TypeScript 5.9.3 · Tailwind 4.3.3 · ESLint 9.39.5 · Node ≥ 22
+**Postgres 17** · drizzle-orm 0.45.2 · better-auth 1.6.26 · Vitest 4.1.10.
+
+> **11/08/2026 — saída do Supabase.** Trocado por Postgres próprio em Docker + Better Auth. Feito antes da fase 1 de propósito: o acoplamento era de ~250 linhas e 100% de autenticação (nenhuma query de dados existia), então custou TypeScript em vez de custar o schema inteiro. Onde a hospedagem de produção vai rodar ainda está em aberto; o `docker-compose.yml` serve de base para VPS quando decidir.
 
 > O planejamento e o README diziam Next 15; o stable no dia da fase 0 era o 16.3.0 e ele foi adotado para nascer sem dívida de major. Consequência prática: **o middleware chama-se `src/proxy.ts`** (`middleware.ts` ainda funciona, mas está depreciado), e o `next.config.ts` não tem mais a chave `eslint` — o lint é barrado pelo hook de pre-commit e pelo CI. ESLint travado no 9 porque o `typescript-eslint` 8 (dentro do `eslint-config-next`) ainda não suporta o 10; TS travado no 5.9 pelo mesmo motivo.
 
@@ -29,52 +32,66 @@ Custo alvo: **R$ 0/mês**.
 
 ## Decisões fechadas — não reabrir
 
-- **Runtime lê e escreve por `supabase-js` com o JWT do usuário.** Drizzle nunca em runtime: ele conecta com role que ignora RLS. `service_role` só em cron e no trigger de signup.
+- **Três roles de banco, e é isso que faz a RLS valer.** `aurum_owner` (superusuário, só cria as outras no init) · `aurum_auth` (dona das tabelas, migrations e Better Auth — ignora a RLS por ser dona, e precisa: no login ainda não existe usuário para a policy avaliar) · `aurum_app` (não é dona de nada, a RLS se aplica). Com uma role só, toda policy seria ignorada.
+- **Runtime lê e escreve por Drizzle, sempre por `withUser()`** (`src/lib/db/with-user.ts`), que abre transação e faz `set_config('app.user_id', …, true)`. O `true` é o `is_local`: sem ele o ajuste sobrevive na conexão e a próxima requisição a pegá-la do pool lê o banco como o usuário anterior. `set_config` e não `SET LOCAL` porque `SET LOCAL` não aceita bind, e concatenar o id seria injeção. ESLint barra importar `@/lib/db/client` fora de `lib/db/`.
+- **`current_user_id()` no lugar de `auth.uid()`.** Falha fechada: sem a variável devolve NULL, e nenhuma linha passa. `is_member()` continua `security definer` — sem isso a policy de `workspace_members` recursiona.
 - **Sem Dinero.js.** `lib/finance/money.ts` próprio: inteiros, formatador BRL, rateio por **largest remainder** (half-to-even não preserva a soma). `BIGINT` chega do Postgres como string — converter na borda da query.
-- **Categorias padrão são copiadas por workspace** no trigger de signup. `workspace_id` nunca é `NULL`.
+- **Categorias padrão são copiadas por workspace**, por trigger de banco. Dois triggers separados: `profiles` → cria o espaço pessoal e o membro owner; `workspaces` → copia o catálogo. Separados para o workspace compartilhado da fase 4 ganhar categorias pelo mesmo caminho. Trigger de banco e não hook em JS: roda na mesma transação do insert e vale para qualquer caminho de cadastro. `workspace_id` nunca é `NULL`.
+- **O catálogo do §4.4 vive na migration**, em `category_templates` — não num seed à parte. O trigger depende dele, e seed que "às vezes rodou" criaria conta sem categoria. Mudar o catálogo é escrever migration. É a única tabela sem `workspace_id` (é molde, não dado de usuário) e a única com RLS ligada e sem policy.
 - **Transferência:** 2 pernas com `transfer_group_id` + coluna `direction ('in'|'out')`. `amount_cents` sempre positivo.
 - **Cadastro é público**, com confirmação de e-mail obrigatória. O convite **nunca cria conta** — só adiciona a um workspace compartilhado existente.
-- **Convidado sem conta:** `/convite/[token]` (rota **pública**) → `/signup` → o token viaja na URL via `emailRedirectTo=/auth/callback?next=/convite/[token]`. Nunca em `sessionStorage`: a confirmação pode ser aberta em outro device.
-- **`accept_invite(token)`** em `security definer`, exige `auth.email() = invite.email` (link vazado não vira acesso). Único caminho de escrita em `workspace_members` além do trigger; `role` nunca editável pelo próprio usuário.
+- **Convidado sem conta:** `/convite/[token]` (rota **pública**) → `/signup` → o token viaja na URL via o `callbackURL` do Better Auth. Nunca em `sessionStorage`: a confirmação pode ser aberta em outro device — e agora ela realmente pode, porque o link é token assinado e não depende mais do navegador de origem, como dependia com o PKCE do Supabase.
+- **Convite:** o plugin `organization` do Better Auth exige sessão com e-mail verificado e igual ao do convite (`requireEmailVerificationOnInvitation`). Mesma garantia que o `accept_invite` em `security definer` dava — link vazado não vira acesso — sem SQL próprio. `workspace_members` não tem policy de escrita: `role` nunca é editável pelo próprio usuário.
+- **Cadastro não revela quem já tem conta.** E-mail repetido responde 200 sem criar nada e sem enviar e-mail (proteção contra enumeração). O texto pós-cadastro é neutro de propósito.
 - **Data civil é `DATE` em `America/Sao_Paulo`.** `timestamptz` só em `created_at`/`updated_at`.
-- **Teste de RLS no CI roda contra Supabase local (Docker)**, não contra projeto na nuvem.
+- **Teste de RLS roda contra o Postgres do `docker-compose.yml`**, local e no CI — o mesmo compose nos dois. Um `services:` do GitHub Actions subiria um Postgres de role única e a suíte passaria por acidente.
 - **Nome: Aurum.** Acento primário segue ciano — âmbar já significa "vencendo", e cor duplicada em app financeiro treina o olho a ignorar alerta. `--gold` existe e é reservado a **conquista** (meta batida, streak, reserva completa).
 
 ## Comandos
 
 ```bash
+pnpm db:up            # Postgres 17 + Mailpit em docker (PRIMEIRO passo do dia)
 pnpm dev              # desenvolvimento
 pnpm build            # build de produção
 pnpm lint             # ESLint
 pnpm typecheck        # tsc --noEmit
-pnpm test             # unit (Vitest) — falha se finance/ < 100%
+pnpm test             # unit (Vitest)
+pnpm test:coverage    # idem, exigindo 100% em finance/
 pnpm test:rls         # isolamento entre usuários (roda no CI a cada push)
-pnpm test:e2e         # Playwright
-pnpm db:generate      # gerar migration Drizzle
+pnpm db:generate      # gerar migration a partir do schema Drizzle
 pnpm db:migrate       # aplicar migrations
-pnpm db:seed          # categorias padrão BR
+pnpm db:studio        # inspecionar o banco
+pnpm db:reset         # apaga o volume e recria do zero
+pnpm db:down          # derruba os containers
 ```
+
+Postgres na **5434** do host, não na 5432: esta máquina já tem um Postgres nativo na 5432 e outro projeto na 5433. O modo de falha da 5432 é traiçoeiro — o Docker binda em `*:5432` sem reclamar, mas o nativo binda em `[::1]:5432`, que é mais específico e ganha o `localhost`; o sintoma é `role "aurum_auth" does not exist`.
+E-mails de dev em **http://localhost:8025**. `docker/postgres/init/` só roda quando o volume nasce vazio — mexeu lá, `pnpm db:reset`.
+Regerar o schema de auth (`auth generate`) exige remover os `import "server-only"` temporariamente: o CLI faz checagem textual, então nem a condição `react-server` contorna.
 
 ## Estrutura de pastas
 
 ```
 src/
 ├─ app/
-│  ├─ (auth)/            login · signup · callback        ├─ convite/[token]/  (público)
+│  ├─ (auth)/            login · signup                    ├─ convite/[token]/  (público)
 │  ├─ (app)/             layout com sidebar + workspace switcher, rotas protegidas
-│  │                     dashboard · transacoes · contas · orcamento · metas · relatorios · config · api/
+│  │                     dashboard · transacoes · contas · orcamento · metas · relatorios · config
+│  └─ api/auth/[...all]/ todos os endpoints do Better Auth
 ├─ components/
 │  ├─ ui/                shadcn — não editar à mão sem motivo
 │  ├─ charts/            wrappers Recharts já temáticos
 │  └─ finance/           MoneyInput, CategoryPicker, ScoreGauge…
 ├─ lib/
-│  ├─ db/                schema.ts · queries/ (uma por entidade)
-│  ├─ supabase/          client · server · middleware
+│  ├─ db/                client (2 pools) · with-user ⭐ · schema/ · queries/ (uma por entidade)
+│  ├─ auth/              server (instância Better Auth) · proxy (guarda otimista)
+│  ├─ mail/              send (nodemailer) · templates
 │  ├─ finance/           ⭐ puro: money · budget · score · forecast · compound · debt · recurring · insights
 │  ├─ validators/        Zod — schema único compartilhado form ↔ servidor
 │  └─ utils/  ├─ hooks/  └─ types/
-supabase/migrations/     SQL versionado (RLS, triggers, seed)
-tests/                   unit · e2e · rls
+db/migrations/           SQL versionado (schema, RLS, triggers, catálogo)
+docker/postgres/init/    criação das três roles (só roda em volume novo)
+tests/                   unit · rls · stubs
 ```
 
 ## Convenções
@@ -90,9 +107,10 @@ tests/                   unit · e2e · rls
 ## NUNCA
 
 - Float/double ou divisão por 100 em qualquer caminho de dinheiro fora do formatador.
-- Ler ou escrever dado de usuário via Drizzle em runtime.
+- Ler ou escrever dado de usuário fora de `withUser()` — nem por `dbApp` direto, nem por `dbAuth`.
+- Usar `dbAuth` para qualquer coisa que não seja o Better Auth: ele ignora a RLS.
 - Criar tabela sem `workspace_id` e sem RLS, ou policy que não derive de `is_member()`.
-- Expor `service_role` no cliente.
+- Importar `@/lib/validators/server-env` ou `@/lib/db/client` de componente de cliente.
 - Hardcodar cor, raio ou espaçamento fora dos tokens.
 - Cálculo financeiro dentro de componente React, ou `Date.now()`/`new Date()` dentro de `lib/finance/`.
 - Deixar `any`, `console.log`, código morto, arquivo órfão ou diretório vazio sem `.gitkeep`.
@@ -101,8 +119,13 @@ tests/                   unit · e2e · rls
 
 ## Pendências do João · Estado
 
-Nenhuma bloqueia a fase 0. Renda e contas fixas dele calibram os alertas da fase 3 — é dado de onboarding, não decisão de código.
-Roadmap §8: **nenhuma fase iniciada**. Cada fase termina em produção.
+Renda e contas fixas dele calibram os alertas da fase 3 — é dado de onboarding, não decisão de código.
+
+**Aberto e bloqueante para "terminar em produção":** onde a aplicação vai rodar. A saída do Supabase deixou o dev 100% em Docker local; produção ficou em aberto (VPS com o mesmo compose, ou Vercel + Postgres gerenciado). Enquanto não decidir, nenhuma fase fecha de fato.
+
+**Aberto e barato:** recadastrar o redirect URI no Google Cloud Console (`/api/auth/callback/google`) e preencher `GOOGLE_CLIENT_*` — até lá o botão do Google simplesmente não aparece.
+
+Roadmap §8: fase 0 concluída de verdade (a primeira migration e o trigger de workspace pessoal, que faltavam, entraram na migração de 11/08/2026). **Fase 1 não iniciada.**
 
 <!-- BEGIN:nextjs-agent-rules -->
 
