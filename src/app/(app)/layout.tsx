@@ -1,27 +1,25 @@
 import { LogOut } from "lucide-react";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { Logo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
-import { createClient } from "@/lib/supabase/server";
+import { auth } from "@/lib/auth/server";
 import { LOGIN_ROUTE } from "@/lib/utils/routes";
 import { signOut } from "../(auth)/actions";
 import { SidebarNav } from "./_components/sidebar-nav";
 
 export default async function AppLayout({ children }: LayoutProps<"/">) {
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getClaims();
+  // Esta é a tranca REAL: consulta o banco e enxerga revogação na hora. O proxy
+  // só faz a checagem otimista pelo cookie assinado, que pode estar até 5
+  // minutos desatualizado — e a doc do Next desaconselha usá-lo como
+  // autorização de fato.
+  const session = await auth.api.getSession({ headers: await headers() });
 
-  // O proxy já barra quem não tem sessão; esta checagem é a segunda tranca,
-  // para o caso de a rota ser adicionada fora do matcher algum dia.
-  if (!data?.claims) redirect(LOGIN_ROUTE);
+  if (!session) redirect(LOGIN_ROUTE);
 
-  const email = typeof data.claims.email === "string" ? data.claims.email : "";
-  const metadata = data.claims.user_metadata;
-  const nome =
-    metadata && typeof metadata.full_name === "string"
-      ? metadata.full_name
-      : email.split("@")[0];
+  const email = session.user.email;
+  const nome = session.user.name.trim() || (email.split("@")[0] ?? email);
 
   return (
     <div className="flex min-h-dvh">

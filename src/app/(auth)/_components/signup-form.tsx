@@ -52,14 +52,21 @@ export function SignupForm({ next }: { next?: string | undefined }) {
       <div className="grid gap-3 text-center">
         <MailCheck className="text-brand mx-auto size-8" aria-hidden />
         <p className="text-base font-medium">Confirme seu e-mail</p>
+        {/* O "abra neste mesmo navegador" saiu junto com o Supabase: o fluxo
+            PKCE guardava o verificador num cookie do navegador de origem. O
+            link do Better Auth é um token assinado, então abre em qualquer
+            aparelho — que é justamente o que o convite por e-mail precisa. */}
         <p className="text-text-mid text-sm">
           Enviamos um link para{" "}
           <strong className="text-text">{emailEnviadoPara}</strong>. Abra a
-          mensagem <strong className="text-text">neste mesmo navegador</strong>{" "}
-          para ativar a conta.
+          mensagem em qualquer aparelho para ativar a conta.
         </p>
+        {/* Redação neutra de propósito: o cadastro responde igual para e-mail
+            novo e para e-mail já registrado, senão a tela vira um oráculo de
+            quem tem conta aqui. Quem já tem conta não recebe link nenhum. */}
         <p className="text-text-dim text-xs">
-          Não chegou? Confira o spam antes de tentar de novo.
+          Se este e-mail ainda não tiver conta, o link chega em instantes.
+          Confira o spam antes de tentar de novo.
         </p>
       </div>
     );

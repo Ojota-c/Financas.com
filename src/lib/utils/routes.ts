@@ -21,13 +21,18 @@ export const HOME_ROUTE: AppRoute = "/dashboard";
 
 export const LOGIN_ROUTE = "/login";
 export const SIGNUP_ROUTE = "/signup";
-export const AUTH_CALLBACK_ROUTE = "/auth/callback";
+
+/**
+ * Endpoints do Better Auth: login, callback do Google, confirmação de e-mail e
+ * logout. Antes isso morava no domínio do Supabase; agora é rota do próprio app.
+ */
+export const AUTH_API_PREFIX = "/api/auth";
 
 /** Abertas mesmo sem sessão — o convite precisa ser lido antes do cadastro. */
 export const PUBLIC_ROUTES = [
   LOGIN_ROUTE,
   SIGNUP_ROUTE,
-  AUTH_CALLBACK_ROUTE,
+  AUTH_API_PREFIX,
   "/convite",
 ] as const;
 

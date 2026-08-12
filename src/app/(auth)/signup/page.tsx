@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { googleHabilitado } from "@/lib/auth/server";
 import { LOGIN_ROUTE, safeNextPath } from "@/lib/utils/routes";
 import { AuthCard } from "../_components/auth-card";
 import { Divider } from "../_components/divider";
@@ -25,8 +26,13 @@ export default async function SignupPage({
       subtitle="Leva um minuto. Seu espaço pessoal já vem pronto."
     >
       <div className="grid gap-5">
-        <GoogleButton next={next} />
-        <Divider label="ou" />
+        {/* Ver login/page.tsx: sem credencial, o botão só teria como falhar. */}
+        {googleHabilitado && (
+          <>
+            <GoogleButton next={next} />
+            <Divider label="ou" />
+          </>
+        )}
         <SignupForm next={next} />
 
         <p className="text-text-mid text-center text-sm">

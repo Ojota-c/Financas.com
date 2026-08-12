@@ -20,17 +20,22 @@ const eslintConfig = defineConfig([
       "no-restricted-imports": [
         "error",
         {
-          paths: [
+          patterns: [
             {
-              name: "@supabase/supabase-js",
-              importNames: ["createClient"],
+              group: ["@/lib/db/client"],
               message:
-                "Use @/lib/supabase/client (browser) ou @/lib/supabase/server (server). createClient direto ignora a propagação do JWT e, com service_role, a RLS.",
+                "Dado de domínio se lê por withUser() (@/lib/db/with-user), que informa ao Postgres de quem é a sessão. Usar dbApp direto roda query sem sujeito: a RLS devolve zero linha e o bug aparece como 'sumiu tudo'. dbAuth é exclusivo do Better Auth e ignora a RLS.",
             },
           ],
         },
       ],
     },
+  },
+
+  {
+    // O choke point acima não pode valer para quem É o choke point.
+    files: ["src/lib/db/**/*.ts", "src/lib/auth/server.ts"],
+    rules: { "no-restricted-imports": "off" },
   },
 
   {
@@ -44,9 +49,12 @@ const eslintConfig = defineConfig([
             "react",
             "react-dom",
             "next/*",
-            "@supabase/*",
             "@/lib/db/*",
-            "@/lib/supabase/*",
+            "@/lib/auth/*",
+            "better-auth",
+            "better-auth/*",
+            "drizzle-orm",
+            "drizzle-orm/*",
           ],
         },
       ],

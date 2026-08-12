@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { googleHabilitado } from "@/lib/auth/server";
 import { SIGNUP_ROUTE, safeNextPath } from "@/lib/utils/routes";
 import { AuthCard } from "../_components/auth-card";
 import { Divider } from "../_components/divider";
@@ -30,8 +31,14 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
           </p>
         )}
 
-        <GoogleButton next={next} />
-        <Divider label="ou" />
+        {/* Sem credencial do Google configurada o botão não teria como
+            funcionar; melhor não existir do que existir quebrado. */}
+        {googleHabilitado && (
+          <>
+            <GoogleButton next={next} />
+            <Divider label="ou" />
+          </>
+        )}
         <LoginForm next={next} />
 
         <p className="text-text-mid text-center text-sm">
