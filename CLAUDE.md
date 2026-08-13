@@ -33,9 +33,13 @@ Custo alvo: **R$ 0/mês**.
 ## Decisões fechadas — não reabrir
 
 - **Três roles de banco, e é isso que faz a RLS valer.** `aurum_owner` (superusuário, só cria as outras no init) · `aurum_auth` (dona das tabelas, migrations e Better Auth — ignora a RLS por ser dona, e precisa: no login ainda não existe usuário para a policy avaliar) · `aurum_app` (não é dona de nada, a RLS se aplica). Com uma role só, toda policy seria ignorada.
-- **Runtime lê e escreve por Drizzle, sempre por `withUser()`** (`src/lib/db/with-user.ts`), que abre transação e faz `set_config('app.user_id', …, true)`. O `true` é o `is_local`: sem ele o ajuste sobrevive na conexão e a próxima requisição a pegá-la do pool lê o banco como o usuário anterior. `set_config` e não `SET LOCAL` porque `SET LOCAL` não aceita bind, e concatenar o id seria injeção. ESLint barra importar `@/lib/db/client` fora de `lib/db/`.
-- **`current_user_id()` no lugar de `auth.uid()`.** Falha fechada: sem a variável devolve NULL, e nenhuma linha passa. `is_member()` continua `security definer` — sem isso a policy de `workspace_members` recursiona.
-- **Sem Dinero.js.** `lib/finance/money.ts` próprio: inteiros, formatador BRL, rateio por **largest remainder** (half-to-even não preserva a soma). `BIGINT` chega do Postgres como string — converter na borda da query.
+- **Runtime lê e escreve por Drizzle, sempre por `withUser(userId, workspaceId, run)`** (`src/lib/db/with-user.ts`), que abre transação e faz `set_config` de **duas** variáveis: `app.user_id` e `app.workspace_id`. O terceiro argumento do `set_config` é o `is_local`: sem ele o ajuste sobrevive na conexão e a próxima requisição a pegá-la do pool lê o banco como o usuário anterior. `set_config` e não `SET LOCAL` porque `SET LOCAL` não aceita bind, e concatenar o id seria injeção. ESLint barra importar `@/lib/db/client` fora de `lib/db/`.
+- **A RLS de domínio tem escopo de workspace, não só de membro** (11/08/2026, antes da fase 1). Toda policy de tabela com `workspace_id` exige `workspace_id = current_workspace_id() and is_member(workspace_id)` — as duas, e nenhuma é redundante: `is_member` impede alcançar espaço alheio mentindo na variável, `current_workspace_id` limita ao espaço aberto na tela. Com só `is_member`, quem tem dois workspaces vê os dois somados e o recorte vira `where` manual em cada query; o erro daí não é vazamento para estranho, é o compartilhado entrando no saldo pessoal — não dispara alarme e só aparece quando a conta não bate. Feito antes das queries existirem: depois custaria reescrever as 13 policies e revisar toda a camada de leitura. Prova em `tests/rls/escopo-workspace.test.ts`.
+- **`withUserAcrossWorkspaces(userId, run)` é a exceção, e o nome é longo de propósito.** Só para o que é do usuário e não de um workspace: o switcher e o próprio perfil — é justamente antes de escolher que não existe espaço ativo. Dado de domínio fica invisível ali, e isso é o comportamento correto.
+- **`current_user_id()` e `current_workspace_id()` no lugar de `auth.uid()`.** Falha fechada nas duas: sem a variável devolvem NULL, a comparação vira NULL e nenhuma linha passa. `is_member()` continua `security definer` — sem isso a policy de `workspace_members` recursiona.
+- **`workspaces`, `workspace_members`, `workspace_invites` e `profiles` NÃO ganham escopo de workspace** — o switcher precisa listar todos os espaços da pessoa.
+- **Sem Dinero.js.** `lib/finance/money.ts` próprio: inteiros, formatador BRL, rateio por **largest remainder** (half-to-even não preserva a soma). `BIGINT` chega do Postgres como string, e a conversão é automática na borda: toda coluna monetária usa o `customType` `cents` (`src/lib/db/schema/cents-column.ts`), que passa o valor por `parseCents` em vez do `Number()` silencioso do `mode: "number"`. Nenhuma coluna de dinheiro usa `bigint` cru.
+- **Saldo de conta não é coluna; `goals.saved_cents` é.** Saldo se calcula do extrato — materializá-lo obriga a mantê-lo em dia em todo insert, update e estorno, e a primeira divergência é inauditável. O total do cofrinho é a exceção porque tem dezenas de aportes, não milhares, e aparece em card de dashboard; um trigger o mantém na mesma transação do aporte, então não há janela para divergir.
 - **Categorias padrão são copiadas por workspace**, por trigger de banco. Dois triggers separados: `profiles` → cria o espaço pessoal e o membro owner; `workspaces` → copia o catálogo. Separados para o workspace compartilhado da fase 4 ganhar categorias pelo mesmo caminho. Trigger de banco e não hook em JS: roda na mesma transação do insert e vale para qualquer caminho de cadastro. `workspace_id` nunca é `NULL`.
 - **O catálogo do §4.4 vive na migration**, em `category_templates` — não num seed à parte. O trigger depende dele, e seed que "às vezes rodou" criaria conta sem categoria. Mudar o catálogo é escrever migration. É a única tabela sem `workspace_id` (é molde, não dado de usuário) e a única com RLS ligada e sem policy.
 - **Transferência:** 2 pernas com `transfer_group_id` + coluna `direction ('in'|'out')`. `amount_cents` sempre positivo.
@@ -83,7 +87,7 @@ src/
 │  ├─ charts/            wrappers Recharts já temáticos
 │  └─ finance/           MoneyInput, CategoryPicker, ScoreGauge…
 ├─ lib/
-│  ├─ db/                client (2 pools) · with-user ⭐ · schema/ · queries/ (uma por entidade)
+│  ├─ db/                client (2 pools) · with-user ⭐ · schema/ (+ cents-column) · queries/ (uma por entidade)
 │  ├─ auth/              server (instância Better Auth) · proxy (guarda otimista)
 │  ├─ mail/              send (nodemailer) · templates
 │  ├─ finance/           ⭐ puro: money · budget · score · forecast · compound · debt · recurring · insights
@@ -125,7 +129,9 @@ Renda e contas fixas dele calibram os alertas da fase 3 — é dado de onboardin
 
 **Aberto e barato:** recadastrar o redirect URI no Google Cloud Console (`/api/auth/callback/google`) e preencher `GOOGLE_CLIENT_*` — até lá o botão do Google simplesmente não aparece.
 
-Roadmap §8: fase 0 concluída de verdade (a primeira migration e o trigger de workspace pessoal, que faltavam, entraram na migração de 11/08/2026). **Fase 1 não iniciada.**
+Roadmap §8: fase 0 concluída de verdade (a primeira migration e o trigger de workspace pessoal, que faltavam, entraram na migração de 11/08/2026).
+
+**Fase 1 em andamento.** Fundação pronta (12/08/2026): as 13 tabelas do §4.2 existem com RLS, checks e os índices do §4.2; `lib/finance/money.ts` está a 100% de cobertura; a suíte de isolamento subiu para 56 casos em três arquivos (`isolamento` · `escopo-workspace` · `constraints`). **Falta a parte visível:** `lib/db/queries/`, CRUD de contas, CRUD de transações com optimistic update, lista com filtros, dashboard v1 e o workspace switcher. As dependências de UI da fase 1 (`@tanstack/react-query`, `date-fns`, `date-fns-tz`) ainda não foram instaladas.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

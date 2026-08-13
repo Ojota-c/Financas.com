@@ -224,16 +224,29 @@ as $$
 $$;
 ```
 
+> **Atualizado em 12/08/2026, antes da fase 1.** Entrou uma **terceira** função,
+> `current_workspace_id()`, e uma segunda variável de sessão. O motivo está
+> abaixo, junto da policy.
+
+```sql
+-- Qual workspace está aberto. Mesma construção, mesma falha fechada.
+create or replace function public.current_workspace_id()
+returns uuid language sql stable
+as $$ select nullif(current_setting('app.workspace_id', true), '')::uuid $$;
+```
+
 Do lado da aplicação, o sujeito só entra por um caminho
 (`src/lib/db/with-user.ts`):
 
 ```ts
-dbApp.transaction(async (tx) => {
-  // `true` = is_local: desfaz no fim da transação. Sem ele o valor sobrevive na
-  // conexão e a próxima requisição a pegá-la do pool lê como o usuário anterior.
-  await tx.execute(sql`select set_config('app.user_id', ${userId}, true)`);
-  return run(tx);
-});
+withUser(userId, workspaceId, run) →
+  dbApp.transaction(async (tx) => {
+    // `true` = is_local: desfaz no fim da transação. Sem ele o valor sobrevive na
+    // conexão e a próxima requisição a pegá-la do pool lê como o usuário anterior.
+    await tx.execute(sql`select set_config('app.user_id', ${userId}, true)`);
+    await tx.execute(sql`select set_config('app.workspace_id', ${workspaceId}, true)`);
+    return run(tx);
+  });
 ```
 
 E em **cada tabela com `workspace_id`**:
@@ -241,11 +254,28 @@ E em **cada tabela com `workspace_id`**:
 ```sql
 alter table transactions enable row level security;
 
-create policy transactions_membro on transactions
+create policy transactions_do_workspace on transactions
   for all to aurum_app
-  using (public.is_member(workspace_id))
-  with check (public.is_member(workspace_id));
+  using      (workspace_id = public.current_workspace_id() and public.is_member(workspace_id))
+  with check (workspace_id = public.current_workspace_id() and public.is_member(workspace_id));
 ```
+
+**As duas cláusulas são necessárias e nenhuma é redundante.** `is_member()`
+impede alcançar o workspace de outra pessoa informando o id dele na variável de
+sessão — a variável não é credencial. `current_workspace_id()` limita ao espaço
+realmente aberto na tela.
+
+Por que a segunda existe: com só `is_member()`, quem tem dois workspaces — o
+pessoal e o compartilhado da §5 — recebe as linhas dos **dois** em toda query, e
+o recorte passa a depender de um `where workspace_id` manual em cada uma. O erro
+que um esquecimento produz não é vazamento para estranho: é o saldo do
+compartilhado entrando no pessoal. Não dispara alarme, não aparece em log, e só
+é notado quando o número não bate.
+
+Ficam **fora** do escopo, de propósito: `workspaces`, `workspace_members`,
+`workspace_invites` e `profiles`. O seletor de workspace precisa listar todos os
+espaços da pessoa, e é justamente antes de escolher um que não existe workspace
+ativo — é o que `withUserAcrossWorkspaces()` atende.
 
 O `with check` não é detalhe: é ele que impede mover uma linha **para dentro** do
 workspace alheio. Sem ele, `using` sozinho barra a leitura e libera a gravação.
@@ -256,6 +286,7 @@ workspace alheio. Sem ele, `using` sozinho barra a leitura e libera a gravação
 2. `aurum_app` **nunca** pode ganhar `BYPASSRLS` nem virar dona de tabela. Se ganhar, toda política acima vira enfeite e a suíte de isolamento passa por acidente — por isso o primeiro caso de `tests/rls/` verifica exatamente isso.
 3. `security definer` na `is_member` é obrigatório: sem ele, a política da `workspace_members` consulta ela mesma e entra em recursão infinita.
 4. Um teste automatizado que loga como usuário A e tenta ler dados de B, esperando **zero linhas**. Esse teste roda em todo deploy.
+5. Toda tabela de domínio deriva das **duas** cláusulas. Um caso da suíte varre o `pg_class` e falha se alguma tabela nasceu sem `enable row level security`.
 
 ### 4.4 Seed de categorias — aprovado em 10/08/2026
 

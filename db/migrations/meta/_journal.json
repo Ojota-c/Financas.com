@@ -29,6 +29,20 @@
       "when": 1786502826325,
       "tag": "0003_rls_triggers_e_catalogo_de_categorias",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1786585989385,
+      "tag": "0004_dominio_completo",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1786585990005,
+      "tag": "0005_rls_do_dominio_e_escopo_de_workspace",
+      "breakpoints": true
     }
   ]
 }
