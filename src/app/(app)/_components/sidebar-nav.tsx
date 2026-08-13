@@ -1,76 +1,20 @@
 "use client";
 
-import {
-  ArrowLeftRight,
-  ChartPie,
-  LayoutDashboard,
-  PiggyBank,
-  Settings,
-  Target,
-  Wallet,
-  type LucideIcon,
-} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { cn } from "@/lib/utils/cn";
-import { APP_ROUTES, type AppRoute } from "@/lib/utils/routes";
 
-type NavItem = {
-  href: AppRoute;
-  label: string;
-  icon: LucideIcon;
-  /** Fase que entrega a tela. Enquanto não existe, o item não navega. */
-  disponivel: boolean;
-};
-
-const NAV: NavItem[] = [
-  {
-    href: "/dashboard",
-    label: "Dashboard",
-    icon: LayoutDashboard,
-    disponivel: true,
-  },
-  {
-    href: "/transacoes",
-    label: "Transações",
-    icon: ArrowLeftRight,
-    disponivel: false,
-  },
-  { href: "/contas", label: "Contas", icon: Wallet, disponivel: false },
-  {
-    href: "/orcamento",
-    label: "Orçamento",
-    icon: PiggyBank,
-    disponivel: false,
-  },
-  { href: "/metas", label: "Metas", icon: Target, disponivel: false },
-  {
-    href: "/relatorios",
-    label: "Relatórios",
-    icon: ChartPie,
-    disponivel: false,
-  },
-  {
-    href: "/config",
-    label: "Configurações",
-    icon: Settings,
-    disponivel: false,
-  },
-];
-
-// Trava de sanidade: item de menu sem rota declarada em routes.ts vira link morto.
-const rotasConhecidas = new Set<string>(APP_ROUTES);
+import { NAV, rotaAtiva } from "./nav-items";
 
 export function SidebarNav() {
   const pathname = usePathname();
 
   return (
     <nav aria-label="Navegação principal" className="grid gap-0.5">
-      {NAV.filter((item) => rotasConhecidas.has(item.href)).map((item) => {
+      {NAV.map((item) => {
         const Icon = item.icon;
-        const ativo =
-          pathname === item.href || pathname.startsWith(`${item.href}/`);
+        const ativo = rotaAtiva(pathname, item.href);
 
         const classes = cn(
           "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors duration-(--dur-fast)",

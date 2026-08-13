@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 
-import { Plus } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 
 import { MoneyInput } from "@/components/finance/money-input";
 import { Button } from "@/components/ui/button";
@@ -32,13 +32,21 @@ import {
 
 import { atualizarContaAction, criarContaAction } from "../actions";
 
+/**
+ * O gatilho é montado AQUI dentro, e não recebido por `children`.
+ *
+ * `DialogTrigger asChild` usa o Slot do Radix, que precisa clonar o filho para
+ * enfiar nele o handler e o ref. Um `<Button>` criado na página — que é Server
+ * Component, e `button.tsx` não é `"use client"` — chega já renderizado no
+ * servidor, e o Slot estoura com "failed to slot onto its children". O gatilho
+ * precisa nascer no cliente.
+ */
 type Props = {
   /** Ausente = criação. Presente = edição. */
   conta?: Conta;
-  children?: React.ReactNode;
 };
 
-export function AccountDialog({ conta, children }: Props) {
+export function AccountDialog({ conta }: Props) {
   const [aberto, setAberto] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [pendente, iniciar] = useTransition();
@@ -97,7 +105,16 @@ export function AccountDialog({ conta, children }: Props) {
   return (
     <Dialog open={aberto} onOpenChange={setAberto}>
       <DialogTrigger asChild>
-        {children ?? (
+        {conta ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={`Editar ${conta.name}`}
+            className="text-text-mid"
+          >
+            <Pencil className="size-4" aria-hidden />
+          </Button>
+        ) : (
           <Button className="gap-2">
             <Plus className="size-4" aria-hidden />
             Nova conta

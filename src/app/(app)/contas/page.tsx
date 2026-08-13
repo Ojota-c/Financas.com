@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 
-import { Landmark, Pencil, Wallet } from "lucide-react";
+import { Landmark, Wallet } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import { requireSessionContext } from "@/lib/auth/session";
 import { listarContas } from "@/lib/db/queries/accounts";
 import { formatCents } from "@/lib/finance";
@@ -86,16 +85,7 @@ export default async function ContasPage() {
                   {formatCents(conta.balanceCents)}
                 </p>
 
-                <AccountDialog conta={conta}>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Editar ${conta.name}`}
-                    className="text-text-mid"
-                  >
-                    <Pencil className="size-4" aria-hidden />
-                  </Button>
-                </AccountDialog>
+                <AccountDialog conta={conta} />
               </div>
             </li>
           ))}

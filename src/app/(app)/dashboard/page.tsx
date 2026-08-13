@@ -70,8 +70,9 @@ export default async function DashboardPage() {
           {formatCents(saldo)}
         </p>
         <p className="text-text-dim mt-2 text-xs">
-          {contas.length} {contas.length === 1 ? "conta" : "contas"} ativa
-          {contas.length === 1 ? "" : "s"}
+          {contas.length === 1
+            ? "1 conta ativa"
+            : `${contas.length} contas ativas`}
         </p>
       </section>
 

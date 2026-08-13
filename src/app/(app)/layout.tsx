@@ -3,8 +3,12 @@ import { LogOut } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import { requireSessionContext } from "@/lib/auth/session";
+import { listarContas } from "@/lib/db/queries/accounts";
+import { listarCategoriasEmArvore } from "@/lib/db/queries/categories";
 import { signOut } from "../(auth)/actions";
+import { BottomNav } from "./_components/bottom-nav";
 import { SidebarNav } from "./_components/sidebar-nav";
+import { NovoLancamentoSheet } from "./transacoes/_components/novo-lancamento-sheet";
 
 export default async function AppLayout({ children }: LayoutProps<"/">) {
   // Esta é a tranca REAL: consulta o banco e enxerga revogação na hora. O proxy
@@ -14,11 +18,20 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   //
   // O `cache()` de getSessionContext faz esta chamada e a das páginas filhas
   // virarem uma consulta só por request.
-  const { email, name, workspaceId, workspaces } =
+  const { email, name, userId, workspaceId, workspaces } =
     await requireSessionContext();
 
   const nome = name.trim() || (email.split("@")[0] ?? email);
   const workspaceAtivo = workspaces.find((ws) => ws.id === workspaceId);
+
+  // O FAB da barra inferior abre o mesmo bottom sheet da página de transações,
+  // e ele precisa de contas e categorias montadas no servidor. As duas consultas
+  // são as mesmas que as páginas filhas já fazem — o `cache()` do React
+  // deduplica dentro do request.
+  const [contas, categorias] = await Promise.all([
+    listarContas({ userId, workspaceId }),
+    listarCategoriasEmArvore({ userId, workspaceId }),
+  ]);
 
   return (
     <div className="flex min-h-dvh">
@@ -72,8 +85,20 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
           </form>
         </header>
 
-        <main className="min-w-0 flex-1 p-5 sm:p-8">{children}</main>
+        {/* pb-24 no mobile para o último item da lista não ficar embaixo da
+            barra fixa. */}
+        <main className="min-w-0 flex-1 p-5 pb-24 sm:p-8 lg:pb-8">
+          {children}
+        </main>
       </div>
+
+      <BottomNav>
+        <NovoLancamentoSheet
+          contas={contas}
+          categorias={categorias}
+          variante="fab"
+        />
+      </BottomNav>
     </div>
   );
 }

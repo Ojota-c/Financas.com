@@ -20,18 +20,20 @@ import { cn } from "@/lib/utils/cn";
  * numérico, e é metade da meta de "lançar em menos de 5 segundos".
  */
 
-export type MoneyInputProps = {
+/**
+ * Herda de `input` menos o que este componente controla: `value` e `onChange`
+ * dariam duas fontes de verdade para o mesmo dado, e `type`/`inputMode` são o
+ * que garante o teclado numérico. O resto — autoFocus, name, disabled, aria-* —
+ * passa direto.
+ */
+export type MoneyInputProps = Omit<
+  React.ComponentProps<"input">,
+  "value" | "onChange" | "type" | "inputMode"
+> & {
   valueCents: number;
   onChangeCents: (cents: number) => void;
   /** Deixa digitar valor negativo (saldo inicial de cartão, por exemplo). */
   allowNegative?: boolean;
-  id?: string;
-  name?: string;
-  placeholder?: string;
-  className?: string;
-  disabled?: boolean;
-  "aria-invalid"?: boolean;
-  "aria-describedby"?: string;
 };
 
 function formatarParaEdicao(cents: number): string {
