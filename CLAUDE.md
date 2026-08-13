@@ -58,7 +58,7 @@ pnpm db:up            # Postgres 17 + Mailpit em docker (PRIMEIRO passo do dia)
 pnpm dev              # desenvolvimento
 pnpm build            # build de produção
 pnpm lint             # ESLint
-pnpm typecheck        # tsc --noEmit
+pnpm typecheck        # next typegen && tsc --noEmit — o typegen NÃO é opcional
 pnpm test             # unit (Vitest)
 pnpm test:coverage    # idem, exigindo 100% em finance/
 pnpm test:rls         # isolamento entre usuários (roda no CI a cada push)
