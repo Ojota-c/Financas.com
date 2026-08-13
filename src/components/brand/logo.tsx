@@ -15,7 +15,7 @@ export function Logo({
     <span className={cn("inline-flex items-center gap-2.5", className)}>
       <span
         aria-hidden
-        className="brand-gradient text-bg grid size-8 place-items-center rounded-[var(--r-sm)] font-mono text-base font-semibold"
+        className="brand-gradient text-bg grid size-8 place-items-center rounded-sm font-mono text-base font-semibold"
       >
         A
       </span>

@@ -28,7 +28,7 @@ export function GoogleButton({ next }: { next?: string | undefined }) {
         variant="outline"
         size="lg"
         disabled={isPending}
-        className="border-line-strong bg-surface-2/50 hover:bg-surface-2 h-11 w-full rounded-[var(--r-md)] font-medium"
+        className="border-line-strong bg-surface-2/50 hover:bg-surface-2 h-11 w-full rounded-md font-medium"
         onClick={() => {
           setError(null);
           startTransition(async () => {

@@ -28,10 +28,7 @@ export function Field({ label, error, className, ...props }: FieldProps) {
         id={id}
         aria-invalid={Boolean(error)}
         aria-describedby={error ? errorId : undefined}
-        className={cn(
-          "bg-surface-2/60 h-11 rounded-[var(--r-md)] text-[15px]",
-          className,
-        )}
+        className={cn("bg-surface-2/60 h-11 rounded-md text-[15px]", className)}
         {...props}
       />
       {error && (

@@ -14,7 +14,7 @@ export function AuthCard({
   return (
     <section
       className={cn(
-        "glass rounded-[var(--r-xl)] p-7 shadow-2xl shadow-black/40 sm:p-8",
+        "glass rounded-xl p-7 shadow-2xl shadow-black/40 sm:p-8",
         className,
       )}
     >

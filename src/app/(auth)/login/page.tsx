@@ -25,7 +25,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
         {erro && (
           <p
             role="alert"
-            className="border-warning/30 bg-warning/10 text-warning rounded-[var(--r-md)] border px-3 py-2 text-xs"
+            className="border-warning/30 bg-warning/10 text-warning rounded-md border px-3 py-2 text-xs"
           >
             {erro}
           </p>

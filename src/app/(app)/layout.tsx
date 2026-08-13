@@ -1,11 +1,8 @@
 import { LogOut } from "lucide-react";
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
 
 import { Logo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
-import { auth } from "@/lib/auth/server";
-import { LOGIN_ROUTE } from "@/lib/utils/routes";
+import { requireSessionContext } from "@/lib/auth/session";
 import { signOut } from "../(auth)/actions";
 import { SidebarNav } from "./_components/sidebar-nav";
 
@@ -14,12 +11,14 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   // só faz a checagem otimista pelo cookie assinado, que pode estar até 5
   // minutos desatualizado — e a doc do Next desaconselha usá-lo como
   // autorização de fato.
-  const session = await auth.api.getSession({ headers: await headers() });
+  //
+  // O `cache()` de getSessionContext faz esta chamada e a das páginas filhas
+  // virarem uma consulta só por request.
+  const { email, name, workspaceId, workspaces } =
+    await requireSessionContext();
 
-  if (!session) redirect(LOGIN_ROUTE);
-
-  const email = session.user.email;
-  const nome = session.user.name.trim() || (email.split("@")[0] ?? email);
+  const nome = name.trim() || (email.split("@")[0] ?? email);
+  const workspaceAtivo = workspaces.find((ws) => ws.id === workspaceId);
 
   return (
     <div className="flex min-h-dvh">
@@ -28,10 +27,10 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
           <Logo />
         </div>
 
-        {/* Seletor de workspace chega na fase 1, junto da tabela. Até lá o
-            usuário só tem o espaço pessoal criado no cadastro. */}
-        <div className="border-line bg-surface-2/50 text-text-mid mt-4 rounded-[var(--r-md)] border px-3 py-2 text-xs">
-          Espaço pessoal
+        {/* Enquanto só existe o espaço pessoal, o switcher seria um menu de um
+            item só. Vira seletor de verdade na fase 4, junto do convite. */}
+        <div className="border-line bg-surface-2/50 text-text-mid mt-4 truncate rounded-md border px-3 py-2 text-xs">
+          {workspaceAtivo?.name ?? "Espaço pessoal"}
         </div>
 
         <div className="mt-6 flex-1">

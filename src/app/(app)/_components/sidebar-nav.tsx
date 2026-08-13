@@ -73,7 +73,7 @@ export function SidebarNav() {
           pathname === item.href || pathname.startsWith(`${item.href}/`);
 
         const classes = cn(
-          "flex items-center gap-3 rounded-[var(--r-md)] px-3 py-2 text-sm transition-colors duration-[var(--dur-fast)]",
+          "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors duration-(--dur-fast)",
           ativo
             ? "bg-surface-2 text-text"
             : "text-text-mid hover:bg-surface-2/60 hover:text-text",

@@ -90,6 +90,9 @@ const eslintConfig = defineConfig([
     ".next/**",
     "out/**",
     "build/**",
+    // Relatório do `pnpm test:coverage`. É gerado e já está no .gitignore, mas
+    // o ESLint varre o disco e não o índice do git.
+    "coverage/**",
     "next-env.d.ts",
     "pnpm-lock.yaml",
   ]),

@@ -109,7 +109,7 @@ export function SignupForm({ next }: { next?: string | undefined }) {
       {serverError && (
         <p
           role="alert"
-          className="border-negative/30 bg-negative/10 text-negative rounded-[var(--r-md)] border px-3 py-2 text-xs"
+          className="border-negative/30 bg-negative/10 text-negative rounded-md border px-3 py-2 text-xs"
         >
           {serverError}
         </p>
@@ -119,7 +119,7 @@ export function SignupForm({ next }: { next?: string | undefined }) {
         type="submit"
         size="lg"
         disabled={isPending}
-        className="h-11 w-full rounded-[var(--r-md)] font-semibold shadow-[var(--glow)]"
+        className="shadow-glow h-11 w-full rounded-md font-semibold"
       >
         {isPending ? "Criando conta…" : "Criar conta"}
       </Button>
