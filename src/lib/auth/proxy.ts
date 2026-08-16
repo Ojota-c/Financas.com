@@ -27,7 +27,22 @@ import {
  * instantâneo e para ninguém ver o esqueleto de uma tela que não vai poder usar.
  */
 export async function updateSession(request: NextRequest) {
-  const sessao = await getCookieCache(request);
+  // As duas opções são explícitas porque o default de ambas depende do
+  // ambiente, e no edge da Netlify os dois defaults erram:
+  //
+  // `isSecure` decide o NOME do cookie procurado (`__Secure-…` ou não). O
+  // default usa NODE_ENV — mas quem manda no prefixo é quem GRAVOU o cookie,
+  // e o Better Auth grava pelo protocolo da baseURL. Detectar pelo protocolo
+  // da requisição espelha essa regra: https acha `__Secure-`, o `pnpm start`
+  // local em http acha o nome cru. Com o default, produção na Netlify
+  // procurava um nome, o cookie tinha outro, e todo login voltava para /login.
+  //
+  // `secret` idem: o default lê env por um shim que nem todo runtime edge
+  // preenche.
+  const sessao = await getCookieCache(request, {
+    isSecure: request.nextUrl.protocol === "https:",
+    secret: process.env.BETTER_AUTH_SECRET,
+  });
   const autenticado = Boolean(sessao);
 
   const { pathname, search } = request.nextUrl;
