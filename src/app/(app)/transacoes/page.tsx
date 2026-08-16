@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { ArrowLeftRight, Wallet } from "lucide-react";
+import { ArrowLeftRight, CalendarClock, Repeat, Wallet } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { requireSessionContext } from "@/lib/auth/session";
@@ -50,12 +50,14 @@ export default async function TransacoesPage({
   const contexto = await requireSessionContext();
   const filtro = lerFiltro(await searchParams);
 
-  const [contas, categorias, lancamentos, total] = await Promise.all([
-    listarContas(contexto),
-    listarCategoriasEmArvore(contexto),
-    listarLancamentos(contexto, filtro),
-    contarLancamentos(contexto, filtro),
-  ]);
+  const [contas, categorias, lancamentos, total, totalAPagar] =
+    await Promise.all([
+      listarContas(contexto),
+      listarCategoriasEmArvore(contexto),
+      listarLancamentos(contexto, filtro),
+      contarLancamentos(contexto, filtro),
+      contarLancamentos(contexto, { status: "pending" }),
+    ]);
 
   return (
     <div className="mx-auto grid max-w-5xl gap-6">
@@ -71,11 +73,41 @@ export default async function TransacoesPage({
           </p>
         </div>
 
-        {contas.length > 0 && (
-          <div className="hidden sm:block">
-            <NovoLancamentoSheet contas={contas} categorias={categorias} />
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="text-text-mid gap-2"
+          >
+            <Link href="/transacoes/recorrentes">
+              <Repeat className="size-4" aria-hidden />
+              Recorrências
+            </Link>
+          </Button>
+
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="text-text-mid gap-2"
+          >
+            <Link href="/transacoes/pendentes">
+              <CalendarClock className="size-4" aria-hidden />A pagar
+              {totalAPagar > 0 && (
+                <span className="bg-warning/15 text-warning rounded-full px-1.5 py-px text-[10px] font-semibold tabular-nums">
+                  {totalAPagar}
+                </span>
+              )}
+            </Link>
+          </Button>
+
+          {contas.length > 0 && (
+            <div className="hidden sm:block">
+              <NovoLancamentoSheet contas={contas} categorias={categorias} />
+            </div>
+          )}
+        </div>
       </div>
 
       {contas.length === 0 ? (

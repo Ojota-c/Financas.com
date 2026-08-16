@@ -172,3 +172,31 @@ export async function saldoConsolidado(
 
   return contas.reduce((total, conta) => total + conta.balanceCents, 0);
 }
+
+/**
+ * O saldo consolidado como ele estava numa data — o ponto de partida da linha
+ * de evolução. Transferência não entra: no consolidado as pernas se anulam.
+ */
+export async function saldoConsolidadoAte(
+  { userId, workspaceId }: ContextoDaSessao,
+  data: string,
+): Promise<Cents> {
+  return withUser(userId, workspaceId, async (tx) => {
+    const [linha] = await tx
+      .select({
+        total: sql<string>`
+          coalesce(sum(accounts.initial_balance_cents), 0) + coalesce((
+            select sum(case
+              when t.type = 'income'  then  t.amount_cents
+              when t.type = 'expense' then -t.amount_cents
+              else 0 end)
+            from transactions t
+            where t.status = 'cleared' and t.date <= ${data}
+          ), 0)
+        `,
+      })
+      .from(accounts);
+
+    return parseCents(linha?.total ?? "0");
+  });
+}

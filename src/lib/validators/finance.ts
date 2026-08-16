@@ -103,12 +103,25 @@ export const accountSchema = z
 export type AccountInput = z.input<typeof accountSchema>;
 export type AccountValues = z.output<typeof accountSchema>;
 
+/**
+ * Parcelamento no formulário de lançamento: "12x de R$ 250". O valor digitado é
+ * o DA PARCELA, como a pessoa lê na etiqueta da loja — pedir o total e dividir
+ * obrigaria a fazer conta de cabeça na fila do caixa.
+ */
+const campoDeParcelas = z.coerce
+  .number()
+  .int("Parcelas precisa ser um número inteiro.")
+  .min(1)
+  .max(48, "No máximo 48 parcelas.")
+  .default(1);
+
 export const transactionSchema = z
   .object({
     type: z.enum(["income", "expense"]),
     accountId: z.uuid("Escolha uma conta."),
     categoryId: z.uuid("Escolha uma categoria."),
     amount: campoDeDinheiro(),
+    installments: campoDeParcelas,
     date: campoDeData,
     description: z.string().trim().min(1, "Descreva o lançamento.").max(120),
     notes: z.string().trim().max(500).optional().or(z.literal("")),
@@ -129,6 +142,105 @@ export const transactionSchema = z
 
 export type TransactionInput = z.input<typeof transactionSchema>;
 export type TransactionValues = z.output<typeof transactionSchema>;
+
+export const budgetSchema = z.object({
+  categoryId: z.uuid("Escolha a categoria."),
+  period: campoDeData.refine(
+    (data) => data.endsWith("-01"),
+    "O período é sempre o dia 1º do mês.",
+  ),
+  limit: campoDeDinheiro(),
+  rollover: z.boolean().default(false),
+});
+
+export type BudgetInput = z.input<typeof budgetSchema>;
+export type BudgetValues = z.output<typeof budgetSchema>;
+
+export const FREQUENCIAS = ["daily", "weekly", "monthly", "yearly"] as const;
+
+export const ROTULO_DA_FREQUENCIA: Record<
+  (typeof FREQUENCIAS)[number],
+  string
+> = {
+  daily: "Diária",
+  weekly: "Semanal",
+  monthly: "Mensal",
+  yearly: "Anual",
+};
+
+/**
+ * O molde do lançamento que a regra gera — é o `template` jsonb da tabela.
+ * Validado nas DUAS bordas: ao salvar a regra e ao materializar a ocorrência,
+ * porque jsonb aceita qualquer coisa e o banco não vai reclamar por nós.
+ */
+export const recurringTemplateSchema = z.object({
+  type: z.enum(["income", "expense"]),
+  accountId: z.uuid(),
+  categoryId: z.uuid(),
+  amountCents: z.number().int().positive(),
+  description: z.string().trim().min(1).max(120),
+  notes: z.string().trim().max(500).nullish(),
+});
+
+export type RecurringTemplate = z.output<typeof recurringTemplateSchema>;
+
+export const recurringSchema = z
+  .object({
+    type: z.enum(["income", "expense"]),
+    accountId: z.uuid("Escolha uma conta."),
+    categoryId: z.uuid("Escolha uma categoria."),
+    amount: campoDeDinheiro(),
+    description: z.string().trim().min(1, "Descreva a recorrência.").max(120),
+    frequency: z.enum(FREQUENCIAS),
+    interval: z.coerce.number().int().min(1).max(60).default(1),
+    dayOfMonth: z.coerce.number().int().min(1).max(31).optional(),
+    weekday: z.coerce.number().int().min(0).max(6).optional(),
+    startDate: campoDeData,
+    endDate: campoDeData.optional().or(z.literal("")),
+    occurrencesLimit: z.coerce.number().int().min(1).max(999).optional(),
+    autoPost: z.boolean().default(false),
+  })
+  .superRefine((valores, ctx) => {
+    if (
+      valores.endDate &&
+      valores.endDate !== "" &&
+      valores.endDate < valores.startDate
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["endDate"],
+        message: "O fim precisa ser depois do início.",
+      });
+    }
+  });
+
+export type RecurringInput = z.input<typeof recurringSchema>;
+export type RecurringValues = z.output<typeof recurringSchema>;
+
+export const goalSchema = z.object({
+  name: z.string().trim().min(1, "Dê um nome à meta.").max(60),
+  target: campoDeDinheiro(),
+  targetDate: campoDeData.optional().or(z.literal("")),
+  accountId: z.uuid().optional().or(z.literal("")),
+  color: z.string().trim().optional().or(z.literal("")),
+});
+
+export type GoalInput = z.input<typeof goalSchema>;
+export type GoalValues = z.output<typeof goalSchema>;
+
+export const contributionSchema = z.object({
+  goalId: z.uuid(),
+  // Negativo permitido: resgatar da reserva é evento normal (ver o schema de
+  // goal_contributions) — só zero não faz sentido.
+  amount: campoDeDinheiro({ positivo: false }).refine(
+    (cents) => cents !== 0,
+    "O aporte não pode ser zero.",
+  ),
+  date: campoDeData,
+});
+
+export type ContributionInput = z.input<typeof contributionSchema>;
+export type ContributionValues = z.output<typeof contributionSchema>;
 
 export const transferSchema = z
   .object({

@@ -9,6 +9,7 @@ import { dbAuth } from "@/lib/db/client";
 import * as schema from "@/lib/db/schema";
 import { enviarEmail } from "@/lib/mail/send";
 import { emailDeConfirmacao } from "@/lib/mail/templates";
+import { lanOrigins } from "@/lib/utils/lan-origins";
 import { getSiteUrl } from "@/lib/utils/site-url";
 import { serverEnv } from "@/lib/validators/server-env";
 
@@ -29,6 +30,11 @@ export const googleHabilitado = Boolean(
 export const auth = betterAuth({
   baseURL: getSiteUrl(),
   secret: serverEnv.BETTER_AUTH_SECRET,
+
+  // Em dev, o celular acessa pelo IP da máquina — origem diferente da baseURL.
+  // Sem listá-la, a proteção CSRF do Better Auth recusa o login do celular.
+  // Em produção a lista volta vazia e só a URL canônica vale.
+  trustedOrigins: lanOrigins(),
 
   database: drizzleAdapter(dbAuth, {
     provider: "pg",

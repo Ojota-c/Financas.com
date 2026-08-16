@@ -7,6 +7,7 @@ import { listarContas } from "@/lib/db/queries/accounts";
 import { listarCategoriasEmArvore } from "@/lib/db/queries/categories";
 import { signOut } from "../(auth)/actions";
 import { BottomNav } from "./_components/bottom-nav";
+import { Materializador } from "./_components/materializador";
 import { SidebarNav } from "./_components/sidebar-nav";
 import { NovoLancamentoSheet } from "./transacoes/_components/novo-lancamento-sheet";
 
@@ -35,6 +36,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
 
   return (
     <div className="flex min-h-dvh">
+      <Materializador />
       <aside className="border-line bg-surface-1/40 hidden w-60 shrink-0 flex-col border-r p-4 lg:flex">
         <div className="px-2 py-2">
           <Logo />

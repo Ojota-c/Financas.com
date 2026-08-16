@@ -38,6 +38,9 @@ import { criarLancamentoAction } from "../actions";
  * numérico, porque é o único que a pessoa SEMPRE precisa digitar. Data já vem
  * preenchida com hoje, e conta com a primeira da lista.
  */
+// 1–12 direto, depois os marcos comuns de loja. 48 é o teto do schema.
+const PARCELAS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 18, 24, 36, 48];
+
 export function LancamentoForm({
   tipo,
   contas,
@@ -74,6 +77,7 @@ export function LancamentoForm({
       accountId: contas[0]?.id ?? "",
       categoryId: "",
       amount: 0,
+      installments: 1,
       date: hoje(),
       description: "",
       status: "cleared",
@@ -192,6 +196,38 @@ export function LancamentoForm({
           {(props) => <Input {...props} type="date" {...register("date")} />}
         </Field>
       </div>
+
+      {tipo === "expense" && (
+        <Field
+          label="Parcelas"
+          hint="O valor acima é o de CADA parcela."
+          error={errors.installments?.message}
+        >
+          {(props) => (
+            <Controller
+              control={control}
+              name="installments"
+              render={({ field }) => (
+                <Select
+                  value={String(field.value ?? 1)}
+                  onValueChange={(valor) => field.onChange(Number(valor))}
+                >
+                  <SelectTrigger {...props} className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PARCELAS.map((n) => (
+                      <SelectItem key={n} value={String(n)}>
+                        {n === 1 ? "À vista" : `${n}x`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          )}
+        </Field>
+      )}
 
       {/* O checkbox é boolean e o campo é enum, então ele não vai por
           `register` — traduz-se aqui, num ponto só. */}

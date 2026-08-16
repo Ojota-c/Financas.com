@@ -136,6 +136,9 @@ export type NovoLancamento = {
   status?: "pending" | "cleared";
   dueDate?: string | null;
   tags?: string[] | null;
+  installmentNo?: number | null;
+  installmentTotal?: number | null;
+  recurringRuleId?: string | null;
 };
 
 export async function criarLancamento(
@@ -155,6 +158,29 @@ export async function criarLancamento(
       .returning({ id: transactions.id });
 
     return linha!.id;
+  });
+}
+
+/**
+ * As parcelas de um "12x" e as ocorrências de uma recorrência entram juntas ou
+ * não entram: `withUser` abre a transação, e um lote pela metade deixaria um
+ * parcelamento com 7 de 12 parcelas — divergência que ninguém audita depois.
+ */
+export async function criarLancamentosEmLote(
+  { userId, workspaceId }: ContextoDaSessao,
+  lote: readonly NovoLancamento[],
+): Promise<void> {
+  if (lote.length === 0) return;
+
+  await withUser(userId, workspaceId, async (tx) => {
+    await tx.insert(transactions).values(
+      lote.map((dados) => ({
+        ...dados,
+        workspaceId,
+        createdBy: userId,
+        competenceDate: dados.competenceDate ?? dados.date,
+      })),
+    );
   });
 }
 
@@ -342,6 +368,198 @@ export async function gastosPorCategoria(
       ...resto,
       totalCents: parseCents(total),
     }));
+  });
+}
+
+export type ResumoMensal = {
+  /** "2026-08" */
+  mes: string;
+  incomeCents: Cents;
+  expenseCents: Cents;
+};
+
+/** Receita e despesa agrupadas por mês — o gráfico de barras lê direto. */
+export async function resumoPorMes(
+  { userId, workspaceId }: ContextoDaSessao,
+  de: string,
+  ate: string,
+): Promise<ResumoMensal[]> {
+  return withUser(userId, workspaceId, async (tx) => {
+    const linhas = await tx
+      .select({
+        mes: sql<string>`to_char(${transactions.date}, 'YYYY-MM')`,
+        income: sql<string>`coalesce(sum(case when ${transactions.type} = 'income'  then ${transactions.amountCents} else 0 end), 0)`,
+        expense: sql<string>`coalesce(sum(case when ${transactions.type} = 'expense' then ${transactions.amountCents} else 0 end), 0)`,
+      })
+      .from(transactions)
+      .where(
+        and(
+          gte(transactions.date, de),
+          lte(transactions.date, ate),
+          eq(transactions.status, "cleared"),
+        ),
+      )
+      .groupBy(sql`to_char(${transactions.date}, 'YYYY-MM')`)
+      .orderBy(sql`to_char(${transactions.date}, 'YYYY-MM')`);
+
+    return linhas.map((linha) => ({
+      mes: linha.mes,
+      incomeCents: parseCents(linha.income),
+      expenseCents: parseCents(linha.expense),
+    }));
+  });
+}
+
+export type MovimentoDiario = { date: string; netCents: Cents };
+
+/**
+ * Entrada menos saída por dia, para a linha de evolução do saldo.
+ * Transferência fica de fora: no consolidado as duas pernas se anulam.
+ */
+export async function movimentoDiario(
+  { userId, workspaceId }: ContextoDaSessao,
+  de: string,
+  ate: string,
+): Promise<MovimentoDiario[]> {
+  return withUser(userId, workspaceId, async (tx) => {
+    const linhas = await tx
+      .select({
+        date: transactions.date,
+        net: sql<string>`coalesce(sum(case
+          when ${transactions.type} = 'income'  then  ${transactions.amountCents}
+          when ${transactions.type} = 'expense' then -${transactions.amountCents}
+          else 0 end), 0)`,
+      })
+      .from(transactions)
+      .where(
+        and(
+          gte(transactions.date, de),
+          lte(transactions.date, ate),
+          eq(transactions.status, "cleared"),
+        ),
+      )
+      .groupBy(transactions.date)
+      .orderBy(asc(transactions.date));
+
+    return linhas.map((linha) => ({
+      date: linha.date,
+      netCents: parseCents(linha.net),
+    }));
+  });
+}
+
+/** Gasto (despesa compensada) por dia de um intervalo — o heatmap anual. */
+export async function gastoPorDia(
+  { userId, workspaceId }: ContextoDaSessao,
+  de: string,
+  ate: string,
+): Promise<{ date: string; totalCents: Cents }[]> {
+  return withUser(userId, workspaceId, async (tx) => {
+    const linhas = await tx
+      .select({
+        date: transactions.date,
+        total: sql<string>`sum(${transactions.amountCents})`,
+      })
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.type, "expense"),
+          eq(transactions.status, "cleared"),
+          gte(transactions.date, de),
+          lte(transactions.date, ate),
+        ),
+      )
+      .groupBy(transactions.date)
+      .orderBy(asc(transactions.date));
+
+    return linhas.map((linha) => ({
+      date: linha.date,
+      totalCents: parseCents(linha.total),
+    }));
+  });
+}
+
+/** Soma das contas a pagar com vencimento até a data — entra no Safe-to-Spend. */
+export async function somaPendentesAte(
+  { userId, workspaceId }: ContextoDaSessao,
+  ate: string,
+): Promise<Cents> {
+  return withUser(userId, workspaceId, async (tx) => {
+    const [linha] = await tx
+      .select({
+        total: sql<string>`coalesce(sum(${transactions.amountCents}), 0)`,
+      })
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.status, "pending"),
+          eq(transactions.type, "expense"),
+          lte(transactions.dueDate, ate),
+        ),
+      );
+
+    return parseCents(linha?.total ?? "0");
+  });
+}
+
+/**
+ * Gasto por bucket (needs/wants/savings) num intervalo — alimenta o runway
+ * (média de essenciais) e o 50/30/20.
+ */
+export async function gastoPorBucket(
+  { userId, workspaceId }: ContextoDaSessao,
+  de: string,
+  ate: string,
+): Promise<Record<string, Cents>> {
+  return withUser(userId, workspaceId, async (tx) => {
+    const linhas = await tx
+      .select({
+        bucket: categories.bucket,
+        total: sql<string>`sum(${transactions.amountCents})`,
+      })
+      .from(transactions)
+      .innerJoin(categories, eq(categories.id, transactions.categoryId))
+      .where(
+        and(
+          eq(transactions.type, "expense"),
+          eq(transactions.status, "cleared"),
+          gte(transactions.date, de),
+          lte(transactions.date, ate),
+        ),
+      )
+      .groupBy(categories.bucket);
+
+    return Object.fromEntries(
+      linhas
+        .filter((linha) => linha.bucket !== null)
+        .map((linha) => [linha.bucket!, parseCents(linha.total)]),
+    );
+  });
+}
+
+/** Parcelas (compras parceladas) com data dentro do intervalo — o "dívida do
+ * mês" do score. */
+export async function parcelasDoPeriodo(
+  { userId, workspaceId }: ContextoDaSessao,
+  de: string,
+  ate: string,
+): Promise<Cents> {
+  return withUser(userId, workspaceId, async (tx) => {
+    const [linha] = await tx
+      .select({
+        total: sql<string>`coalesce(sum(${transactions.amountCents}), 0)`,
+      })
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.type, "expense"),
+          gte(transactions.date, de),
+          lte(transactions.date, ate),
+          sql`${transactions.installmentNo} is not null`,
+        ),
+      );
+
+    return parseCents(linha?.total ?? "0");
   });
 }
 

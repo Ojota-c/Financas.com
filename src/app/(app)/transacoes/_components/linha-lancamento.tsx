@@ -40,6 +40,12 @@ export function LinhaLancamento({ lancamento }: { lancamento: Lancamento }) {
         <div className="flex items-center gap-2">
           <p className="truncate text-sm font-medium">
             {lancamento.description}
+            {lancamento.installmentNo !== null &&
+              lancamento.installmentTotal !== null && (
+                <span className="text-text-dim ml-1.5 text-xs tabular-nums">
+                  {lancamento.installmentNo}/{lancamento.installmentTotal}
+                </span>
+              )}
           </p>
           {aPagar && (
             <span className="border-warning/40 text-warning shrink-0 rounded-full border px-1.5 py-px text-[10px]">

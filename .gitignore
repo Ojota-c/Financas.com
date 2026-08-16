@@ -68,3 +68,7 @@ supabase/.env
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Serwist — gerados no build
+public/sw.js
+public/swe-worker*.js

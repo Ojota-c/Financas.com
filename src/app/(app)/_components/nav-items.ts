@@ -54,7 +54,7 @@ const TODOS: NavItem[] = [
     label: "Orçamento",
     short: "Orçam.",
     icon: PiggyBank,
-    disponivel: false,
+    disponivel: true,
   },
   {
     href: "/metas",

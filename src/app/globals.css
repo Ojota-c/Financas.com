@@ -51,6 +51,17 @@
 
   /* grade de gráfico — quase invisível */
   --chart-grid: rgba(255, 255, 255, 0.04);
+
+  /* Paleta categórica dos gráficos, em ORDEM FIXA — série 1 é sempre ciano,
+     não importa quantas séries o filtro deixou. Validada contra --surface-1
+     (banda de luminosidade OKLCH, separação CVD, contraste ≥3:1) — mais
+     escura que os acentos de UI de propósito: neon em área grande cansa. */
+  --chart-1: #0891b2;
+  --chart-2: #8b5cf6;
+  --chart-3: #d97706;
+  --chart-4: #059669;
+  --chart-5: #f43f5e;
+  --chart-6: #3b82f6;
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -78,6 +89,12 @@
   --color-line: var(--border);
   --color-line-strong: var(--border-strong);
   --color-chart-grid: var(--chart-grid);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
 
   /* nomes que o shadcn/ui gera nos componentes */
   --color-background: var(--bg);
