@@ -43,7 +43,17 @@ export async function updateSession(request: NextRequest) {
     isSecure: request.nextUrl.protocol === "https:",
     secret: process.env.BETTER_AUTH_SECRET,
   });
-  const autenticado = Boolean(sessao);
+
+  // O cache assinado expira em 5 minutos e só o SERVIDOR o renova — o proxy
+  // não grava cookie. Sem este fallback, quem ficasse 5 minutos parado seria
+  // devolvido ao /login mesmo com a sessão de 30 dias válida. A presença do
+  // token de longa duração basta para uma checagem OTIMISTA: token forjado
+  // passa daqui e morre no layout, que consulta o banco.
+  const token =
+    request.cookies.get("__Secure-better-auth.session_token") ??
+    request.cookies.get("better-auth.session_token");
+
+  const autenticado = Boolean(sessao) || token !== undefined;
 
   const { pathname, search } = request.nextUrl;
 
