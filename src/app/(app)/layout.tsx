@@ -72,7 +72,10 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="border-line bg-bg/80 sticky top-0 z-10 flex items-center justify-between border-b px-5 py-3 backdrop-blur lg:hidden">
+        {/* pt de safe-area: no PWA instalado (status bar translúcida) o
+            conteúdo avança sob o relógio e a bateria — sem isto o logo e o
+            botão de sair ficam embaixo deles, inclicáveis. */}
+        <header className="border-line bg-bg/80 sticky top-0 z-10 flex items-center justify-between border-b px-5 py-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] backdrop-blur lg:hidden">
           <Logo />
           <form action={signOut}>
             <Button

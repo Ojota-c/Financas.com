@@ -5,7 +5,8 @@ import { Logo } from "@/components/brand/logo";
 export default function AuthLayout({ children }: LayoutProps<"/">) {
   return (
     <div className="aurora flex min-h-dvh flex-col">
-      <header className="px-6 pt-8 sm:px-10">
+      {/* Safe-area do notch: no PWA instalado o topo avança sob a status bar. */}
+      <header className="px-6 pt-[calc(env(safe-area-inset-top)+2rem)] sm:px-10">
         <Link href="/" className="rounded-sm focus-visible:outline-none">
           <Logo />
         </Link>
