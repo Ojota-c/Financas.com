@@ -20,7 +20,12 @@ export type Cents = number;
 
 const CENTAVOS_POR_REAL = 100;
 
-function exigirCentsValido(valor: number, papel: string): void {
+/**
+ * A guarda compartilhada do motor: recusa o que não é centavo inteiro dentro
+ * da faixa segura do double. Exportada porque todo módulo do motor valida a
+ * própria borda com a MESMA régua — duplicada, uma das cópias afrouxaria.
+ */
+export function assertCents(valor: number, papel: string): void {
   if (!Number.isInteger(valor)) {
     throw new TypeError(
       `${papel} precisa ser inteiro em centavos, veio ${valor}`,
@@ -43,7 +48,7 @@ function exigirCentsValido(valor: number, papel: string): void {
  */
 export function parseCents(valor: string | number): Cents {
   if (typeof valor === "number") {
-    exigirCentsValido(valor, "valor em centavos");
+    assertCents(valor, "valor em centavos");
     return valor;
   }
 
@@ -58,7 +63,7 @@ export function parseCents(valor: string | number): Cents {
   }
 
   const convertido = Number(limpo);
-  exigirCentsValido(convertido, "valor em centavos");
+  assertCents(convertido, "valor em centavos");
 
   return convertido;
 }
@@ -133,7 +138,7 @@ export function formatCents(
   cents: Cents,
   { symbol = true, sign = "auto" }: FormatCentsOptions = {},
 ): string {
-  exigirCentsValido(cents, "valor em centavos");
+  assertCents(cents, "valor em centavos");
 
   const negativo = cents < 0;
   const absoluto = Math.abs(cents);
@@ -156,11 +161,11 @@ export function sumCents(valores: readonly Cents[]): Cents {
   let total = 0;
 
   for (const valor of valores) {
-    exigirCentsValido(valor, "parcela da soma");
+    assertCents(valor, "parcela da soma");
     total += valor;
   }
 
-  exigirCentsValido(total, "soma");
+  assertCents(total, "soma");
 
   return total;
 }
@@ -182,7 +187,7 @@ export function sumCents(valores: readonly Cents[]): Cents {
  * e não uma qualquer que mude a cada execução.
  */
 export function allocate(total: Cents, pesos: readonly number[]): Cents[] {
-  exigirCentsValido(total, "total do rateio");
+  assertCents(total, "total do rateio");
 
   if (pesos.length === 0) {
     throw new TypeError("rateio precisa de ao menos um peso");
@@ -235,7 +240,7 @@ export function allocate(total: Cents, pesos: readonly number[]): Cents[] {
   }
 
   // Converter de volta é seguro sem nova checagem: cada parte é no máximo o
-  // próprio total, que já passou por `exigirCentsValido` na entrada.
+  // próprio total, que já passou por `assertCents` na entrada.
   return partes.map((parte) => {
     const valor = Number(parte);
     return negativo ? -valor : valor;
