@@ -3,6 +3,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 
 import { and, asc, desc, eq, gte, ilike, inArray, lte, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 
 import { accounts, categories, transactions } from "@/lib/db/schema";
 import { withUser } from "@/lib/db/with-user";
@@ -560,6 +561,53 @@ export async function parcelasDoPeriodo(
       );
 
     return parseCents(linha?.total ?? "0");
+  });
+}
+
+export type FluxoDeGasto = {
+  parentName: string;
+  bucket: string | null;
+  totalCents: Cents;
+};
+
+/**
+ * Gasto por categoria-PAI e bucket num intervalo — os ramos do Sankey de
+ * renda: salário entra, se divide em needs/wants/savings, e cada braço se
+ * abre nos grupos de categoria.
+ */
+export async function fluxoDeGastos(
+  { userId, workspaceId }: ContextoDaSessao,
+  de: string,
+  ate: string,
+): Promise<FluxoDeGasto[]> {
+  return withUser(userId, workspaceId, async (tx) => {
+    const pai = alias(categories, "parent");
+
+    const linhas = await tx
+      .select({
+        parentName: pai.name,
+        bucket: categories.bucket,
+        total: sql<string>`sum(${transactions.amountCents})`,
+      })
+      .from(transactions)
+      .innerJoin(categories, eq(categories.id, transactions.categoryId))
+      .innerJoin(pai, eq(pai.id, categories.parentId))
+      .where(
+        and(
+          eq(transactions.type, "expense"),
+          eq(transactions.status, "cleared"),
+          gte(transactions.date, de),
+          lte(transactions.date, ate),
+        ),
+      )
+      .groupBy(pai.name, categories.bucket)
+      .orderBy(desc(sql`sum(${transactions.amountCents})`));
+
+    return linhas.map((linha) => ({
+      parentName: linha.parentName,
+      bucket: linha.bucket,
+      totalCents: parseCents(linha.total),
+    }));
   });
 }
 

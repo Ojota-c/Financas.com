@@ -217,6 +217,31 @@ export const recurringSchema = z
 export type RecurringInput = z.input<typeof recurringSchema>;
 export type RecurringValues = z.output<typeof recurringSchema>;
 
+export const BUCKETS = ["needs", "wants", "savings"] as const;
+
+export const ROTULO_DO_BUCKET: Record<(typeof BUCKETS)[number], string> = {
+  needs: "Necessidade",
+  wants: "Desejo",
+  savings: "Guardar",
+};
+
+export const categorySchema = z.object({
+  name: z.string().trim().min(1, "Dê um nome à categoria.").max(60),
+  parentId: z.uuid("Escolha o grupo."),
+  // Receita não tem bucket (o 50/30/20 divide o GASTO); despesa exige um.
+  bucket: z.enum(BUCKETS).optional(),
+});
+
+export type CategoryInput = z.input<typeof categorySchema>;
+export type CategoryValues = z.output<typeof categorySchema>;
+
+export const renameCategorySchema = z.object({
+  id: z.uuid(),
+  name: z.string().trim().min(1, "Dê um nome à categoria.").max(60),
+});
+
+export type RenameCategoryInput = z.input<typeof renameCategorySchema>;
+
 export const goalSchema = z.object({
   name: z.string().trim().min(1, "Dê um nome à meta.").max(60),
   target: campoDeDinheiro(),

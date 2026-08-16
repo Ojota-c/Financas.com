@@ -61,21 +61,21 @@ const TODOS: NavItem[] = [
     label: "Metas",
     short: "Metas",
     icon: Target,
-    disponivel: false,
+    disponivel: true,
   },
   {
     href: "/relatorios",
     label: "Relatórios",
     short: "Relat.",
     icon: ChartPie,
-    disponivel: false,
+    disponivel: true,
   },
   {
     href: "/config",
     label: "Configurações",
     short: "Config",
     icon: Settings,
-    disponivel: false,
+    disponivel: true,
   },
 ];
 

@@ -16,5 +16,5 @@ const nextConfig: NextConfig = {
 
 // O service worker NÃO passa por aqui de propósito: o plugin webpack do
 // @serwist/next não funciona no Turbopack do Next 16. O sw.js nasce num passo
-// próprio do build — `serwist build`, configurado em serwist.config.mjs.
+// próprio do build — `serwist build`, configurado em serwist.config.js.
 export default nextConfig;

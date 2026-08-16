@@ -15,6 +15,7 @@ import {
 import { BarrasMensais } from "@/components/charts/barras-mensais";
 import { DonutCategorias } from "@/components/charts/donut-categorias";
 import { LinhaSaldo, type PontoDeSaldo } from "@/components/charts/linha-saldo";
+import { MoneyCountUp } from "@/components/finance/money-count-up";
 import { ScoreGauge } from "@/components/finance/score-gauge";
 import { Button } from "@/components/ui/button";
 import { requireSessionContext } from "@/lib/auth/session";
@@ -210,7 +211,7 @@ export default async function DashboardPage() {
         <p className="text-text-mid text-xs tracking-wide uppercase">
           Dá para gastar
         </p>
-        <p className="money mt-1 text-5xl tracking-[-0.02em] sm:text-6xl">
+        <p className="money mt-1 text-4xl tracking-[-0.02em] sm:text-6xl">
           <span
             className={cn(
               sts.perDayCents < 0
@@ -218,7 +219,7 @@ export default async function DashboardPage() {
                 : "brand-gradient bg-clip-text text-transparent",
             )}
           >
-            {formatCents(sts.perDayCents)}
+            <MoneyCountUp cents={sts.perDayCents} />
           </span>
           <span className="text-text-mid ml-2 text-lg font-normal">/dia</span>
         </p>

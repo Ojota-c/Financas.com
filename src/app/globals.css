@@ -218,4 +218,20 @@
       var(--accent-2) 100%
     );
   }
+
+  /* Variante fraca da aurora para o MIOLO do app: só situa a atmosfera, sem
+     competir com dado. A versão cheia fica nas telas de entrada e no hero. */
+  .aurora-app {
+    background-image:
+      radial-gradient(
+        50rem 24rem at 80% -10%,
+        color-mix(in oklab, var(--accent-2) 7%, transparent),
+        transparent 65%
+      ),
+      radial-gradient(
+        40rem 20rem at 10% -6%,
+        color-mix(in oklab, var(--accent) 6%, transparent),
+        transparent 60%
+      );
+  }
 }

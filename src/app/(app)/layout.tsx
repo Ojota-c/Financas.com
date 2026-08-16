@@ -89,7 +89,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
 
         {/* pb-24 no mobile para o último item da lista não ficar embaixo da
             barra fixa. */}
-        <main className="min-w-0 flex-1 p-5 pb-24 sm:p-8 lg:pb-8">
+        <main className="aurora-app min-w-0 flex-1 p-5 pb-24 sm:p-8 lg:pb-8">
           {children}
         </main>
       </div>

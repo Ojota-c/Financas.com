@@ -93,6 +93,9 @@ const eslintConfig = defineConfig([
     // Relatório do `pnpm test:coverage`. É gerado e já está no .gitignore, mas
     // o ESLint varre o disco e não o índice do git.
     "coverage/**",
+    // Service worker minificado que o `serwist build` escreve no fim do build.
+    "public/sw.js",
+    "public/swe-worker*.js",
     "next-env.d.ts",
     "pnpm-lock.yaml",
   ]),

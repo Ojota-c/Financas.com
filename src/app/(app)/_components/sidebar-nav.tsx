@@ -17,9 +17,11 @@ export function SidebarNav() {
         const ativo = rotaAtiva(pathname, item.href);
 
         const classes = cn(
-          "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors duration-(--dur-fast)",
+          "relative flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors duration-(--dur-fast)",
           ativo
-            ? "bg-surface-2 text-text"
+            ? // O filete ciano à esquerda é o único brilho do menu: âncora o
+              // olho sem transformar a sidebar num painel de neon.
+              "bg-surface-2 text-text before:bg-brand before:absolute before:top-1/2 before:left-0 before:h-4 before:w-0.5 before:-translate-y-1/2 before:rounded-full before:content-['']"
             : "text-text-mid hover:bg-surface-2/60 hover:text-text",
         );
 

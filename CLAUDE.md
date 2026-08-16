@@ -129,9 +129,15 @@ Renda e contas fixas dele calibram os alertas da fase 3 — é dado de onboardin
 
 **Aberto e barato:** recadastrar o redirect URI no Google Cloud Console (`/api/auth/callback/google`) e preencher `GOOGLE_CLIENT_*` — até lá o botão do Google simplesmente não aparece.
 
-Roadmap §8: fase 0 concluída de verdade (a primeira migration e o trigger de workspace pessoal, que faltavam, entraram na migração de 11/08/2026).
+Roadmap §8 (atualizado em 16/08/2026): **fases 0, 1 e 2 concluídas; fase 3 quase toda.**
 
-**Fase 1 em andamento.** Fundação pronta (12/08/2026): as 13 tabelas do §4.2 existem com RLS, checks e os índices do §4.2; `lib/finance/money.ts` está a 100% de cobertura; a suíte de isolamento subiu para 56 casos em três arquivos (`isolamento` · `escopo-workspace` · `constraints`). **Falta a parte visível:** `lib/db/queries/`, CRUD de contas, CRUD de transações com optimistic update, lista com filtros, dashboard v1 e o workspace switcher. As dependências de UI da fase 1 (`@tanstack/react-query`, `date-fns`, `date-fns-tz`) ainda não foram instaladas.
+- **Fase 1** ✅ — CRUD de contas/transações/categorias (em /config), extrato com filtros, dashboard, nav mobile.
+- **Fase 2** ✅ — contas a pagar com semáforo e swipe em `/transacoes/pendentes`; recorrências em `/transacoes/recorrentes` (materialização ao abrir o app via server action + reclamação condicional contra corrida — não há cron); parcelamento no lançamento; fatura de cartão por competência (`cardInvoiceFor`); orçamento com rollover e alertas.
+- **Fase 3** — motor puro completo em `lib/finance/` (10 módulos, 199 testes, 100% travado no CI); dashboard v2 (Safe-to-Spend herói, ScoreGauge, runway, projeção); metas com aporte sugerido e projeção; relatórios (Sankey d3, heatmap anual, curva ABC, gastos formiga, radar de assinaturas). **Falta:** simulador "e se", streaks/conquistas, comparativo mês vs mês no mesmo dia, custo em horas na UI (a função existe).
+- **Adiantado da fase 5:** PWA instalável (manifest tipado + Serwist; o sw nasce do passo `serwist build` porque o plugin webpack não roda no Turbopack) e acesso pelo celular na rede local (`allowedDevOrigins` + `trustedOrigins` enumeram os IPs da máquina em dev — `src/lib/utils/lan-origins.ts`).
+- **Fase 4 inteira em aberto** (workspace compartilhado, convites) e o resto da fase 5 (onboarding, ⌘K, modo privacidade, export, Sentry, backup).
+
+Gráficos: paleta categórica própria em `--chart-1..6` (validada contra o fundo escuro — mais escura que os acentos de UI de propósito), ordem fixa, 6ª fatia vira "Outros". O banco de dev tem um usuário semeado para ver o app cheio: `teste@aurum.local` / `senha-forte-123`.
 
 <!-- BEGIN:nextjs-agent-rules -->
 
