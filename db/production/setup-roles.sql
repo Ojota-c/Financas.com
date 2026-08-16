@@ -21,6 +21,10 @@
 create role aurum_auth login password :'auth_password';
 create role aurum_app  login password :'app_password';
 
+-- Num gerenciado o dono não é superusuário: para falar POR aurum_auth no
+-- "alter default privileges" abaixo, precisa antes ser membro dela.
+grant aurum_auth to current_user;
+
 -- gen_random_uuid() dos defaults de chave primária.
 create extension if not exists pgcrypto;
 
@@ -41,6 +45,9 @@ alter default privileges for role aurum_auth in schema public
 alter default privileges for role aurum_auth in schema public
   grant usage, select on sequences to aurum_app;
 
--- bypassrls em aurum_app tornaria toda policy inócua — tests/rls/ vigia isso.
-alter role aurum_app  nosuperuser nocreatedb nocreaterole nobypassrls;
-alter role aurum_auth nosuperuser nocreatedb nocreaterole nobypassrls;
+-- Sem o "alter role ... nobypassrls" do init local: gerenciado como o Neon
+-- recusa a menção a SUPERUSER vinda de não superusuário — e não faz falta,
+-- CREATE ROLE já nasce sem superuser/bypassrls. A consulta abaixo é a prova
+-- impressa no terminal: as quatro colunas devem vir todas 'f'.
+select rolname, rolsuper, rolbypassrls, rolcreatedb, rolcreaterole
+  from pg_roles where rolname in ('aurum_auth', 'aurum_app');
