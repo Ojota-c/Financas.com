@@ -124,6 +124,53 @@ Não existem scripts vazios no `package.json`: `test:e2e` (Playwright) chega na
 fase 3a. As categorias padrão não têm `db:seed` — o catálogo vive na migration,
 porque o trigger de cadastro depende dele.
 
+## Deploy — Netlify + Neon
+
+A Netlify roda o app (o `netlify.toml` já configura tudo); o banco fica num
+Postgres gerenciado — o roteiro abaixo usa o [Neon](https://neon.tech) (free
+tier, região AWS São Paulo). Ordem dos passos:
+
+**1. Banco (uma vez).** Crie o projeto no Neon e rode o script que cria as
+duas roles da RLS, conectado com a role padrão do projeto (a URL "owner" do
+painel):
+
+```bash
+psql "postgres://OWNER@ep-xxx.sa-east-1.aws.neon.tech/neondb?sslmode=require" \
+  -v auth_password='GERE_UMA_SENHA' \
+  -v app_password='GERE_OUTRA_SENHA' \
+  -f db/production/setup-roles.sql
+```
+
+**2. Migrations.** Com a URL da role `aurum_auth` (host **sem** o pooler, o
+sufixo `-pooler` do Neon, porque migration precisa de conexão direta):
+
+```bash
+DATABASE_URL="postgres://aurum_auth:SENHA@ep-xxx.sa-east-1.aws.neon.tech/neondb?sslmode=require" \
+  pnpm db:migrate
+```
+
+**3. Site na Netlify.** "Add new site → Import from Git" apontando para este
+repositório. O build é detectado pelo `netlify.toml`. Variáveis de ambiente
+(Site settings → Environment variables) — as URLs de runtime usam o host
+**com** `-pooler`, que aguenta o paralelismo de funções serverless:
+
+| Variável | Valor |
+|---|---|
+| `DATABASE_URL` | `postgres://aurum_auth:SENHA@ep-xxx-pooler...` |
+| `DATABASE_URL_APP` | `postgres://aurum_app:SENHA@ep-xxx-pooler...` |
+| `BETTER_AUTH_SECRET` | `openssl rand -base64 32` — um novo, não o de dev |
+| `NEXT_PUBLIC_SITE_URL` | `https://SEU-SITE.netlify.app` (sem barra no fim) |
+| `SMTP_URL` | SMTP real — Resend: `smtps://resend:API_KEY@smtp.resend.com:465` |
+| `MAIL_FROM` | `Aurum <onboarding@resend.dev>` (ou seu domínio verificado) |
+
+**4. Depois do primeiro deploy:** o endereço final entra em
+`NEXT_PUBLIC_SITE_URL` (e um redeploy), e com HTTPS no ar o app vira PWA
+instalável — no celular, "Adicionar à tela de início".
+
+O Google OAuth continua opcional: preencha `GOOGLE_CLIENT_ID`/`SECRET` e
+cadastre `https://SEU-SITE.netlify.app/api/auth/callback/google` no Google
+Cloud Console quando quiser o botão.
+
 ---
 
 Projeto pessoal. Não aceita contribuições externas por enquanto.

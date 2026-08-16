@@ -1,0 +1,12 @@
+# Deploy do Next 16 na Netlify. O plugin oficial converte rotas dinâmicas e
+# Server Actions em funções; o `serwist build` no fim do build grava o
+# public/sw.js que faz o PWA ser instalável.
+[build]
+command = "pnpm build"
+publish = ".next"
+
+[build.environment]
+NODE_VERSION = "22"
+
+[[plugins]]
+package = "@netlify/plugin-nextjs"

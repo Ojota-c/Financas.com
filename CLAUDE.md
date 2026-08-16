@@ -125,7 +125,7 @@ tests/                   unit · rls · stubs
 
 Renda e contas fixas dele calibram os alertas da fase 3 — é dado de onboarding, não decisão de código.
 
-**Aberto e bloqueante para "terminar em produção":** onde a aplicação vai rodar. A saída do Supabase deixou o dev 100% em Docker local; produção ficou em aberto (VPS com o mesmo compose, ou Vercel + Postgres gerenciado). Enquanto não decidir, nenhuma fase fecha de fato.
+**Hospedagem decidida (16/08/2026): Netlify + Postgres gerenciado (Neon).** O `netlify.toml` configura o build; `db/production/setup-roles.sql` cria as duas roles da RLS no banco gerenciado (equivalente do init do Docker); o roteiro completo com as variáveis está no README ("Deploy — Netlify + Neon"). Migration roda com a URL direta (sem `-pooler`); runtime usa a URL com pooler — o `set_config` do withUser vive dentro de transação, que o pooler mantém num backend só.
 
 **Aberto e barato:** recadastrar o redirect URI no Google Cloud Console (`/api/auth/callback/google`) e preencher `GOOGLE_CLIENT_*` — até lá o botão do Google simplesmente não aparece.
 
