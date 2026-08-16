@@ -48,9 +48,11 @@ export async function withUser<T>(
   run: (tx: AppTx) => Promise<T>,
 ): Promise<T> {
   return dbApp.transaction(async (tx) => {
-    await tx.execute(sql`select set_config('app.user_id', ${userId}, true)`);
+    // As duas variáveis num comando só: com o banco remoto, cada execute é uma
+    // viagem de rede inteira, e este caminho roda em TODA query do app.
     await tx.execute(
-      sql`select set_config('app.workspace_id', ${workspaceId}, true)`,
+      sql`select set_config('app.user_id', ${userId}, true),
+                 set_config('app.workspace_id', ${workspaceId}, true)`,
     );
     return run(tx);
   });
